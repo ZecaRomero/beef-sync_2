@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { 
   ChartBarIcon,
-  TrendingUpIcon,
   CalendarDaysIcon,
   UserGroupIcon,
   CurrencyDollarIcon,
@@ -9,6 +8,7 @@ import {
   DocumentArrowDownIcon,
   PrinterIcon
 } from '@heroicons/react/24/outline'
+import { TrendingUpIcon } from '../ui/Icons'
 import { Card, CardHeader, CardBody } from '../ui/Card'
 import Button from '../ui/Button'
 import Badge from '../ui/Badge'

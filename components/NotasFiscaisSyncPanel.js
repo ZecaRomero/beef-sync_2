@@ -9,6 +9,7 @@ import {
   CheckCircleIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline'
+import { ArrowDownTrayIcon, ArrowUpTrayIcon } from './ui/Icons'
 import { notasFiscaisSync } from '../utils/notasFiscaisSync'
 
 export default function NotasFiscaisSyncPanel() {

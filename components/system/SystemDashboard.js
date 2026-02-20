@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { 
   ServerIcon, 
-  DatabaseIcon, 
   ChartBarIcon, 
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
   CpuChipIcon
 } from '@heroicons/react/24/outline'
+import { DatabaseIcon } from '../ui/Icons'
 import ApiHealthMonitor from './ApiHealthMonitor'
 
 const SystemDashboard = () => {

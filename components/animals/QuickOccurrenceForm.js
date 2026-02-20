@@ -8,12 +8,11 @@ import {
   XCircleIcon,
   BeakerIcon,
   ShieldCheckIcon,
-  PillsIcon,
   DocumentTextIcon,
   CalendarIcon,
-  FireIcon,
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline'
+import { PillsIcon, FireIcon } from '../ui/Icons'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Input from '../ui/Input'

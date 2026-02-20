@@ -43,4 +43,6 @@ import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import ReportCard from '../../components/contabilidade/ReportCard'
 import RecipientsList from '../../components/contabilidade/RecipientsList'
 
-export default functio
+export default function ContabilidadeRefactored() {
+  return null // Página em refatoração - usar /contabilidade
+}

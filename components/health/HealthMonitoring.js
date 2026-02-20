@@ -7,6 +7,7 @@ import {
   DocumentTextIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline'
+import { CalendarDaysIcon } from '../ui/Icons'
 
 const HealthMonitoring = () => {
   const [healthData, setHealthData] = useState({
