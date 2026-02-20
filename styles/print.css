@@ -1,0 +1,112 @@
+/* Estilos específicos para impressão */
+@media print {
+  /* Ocultar elementos desnecessários */
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Configurações gerais da página */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+    color: black !important;
+    background: white !important;
+  }
+
+  /* Títulos */
+  h1, h2, h3, h4, h5, h6 {
+    color: black !important;
+    page-break-after: avoid;
+  }
+
+  /* Tabelas */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    font-size: 10pt;
+  }
+
+  table, th, td {
+    border: 1px solid black !important;
+  }
+
+  th {
+    background-color: #f0f0f0 !important;
+    font-weight: bold !important;
+    text-align: center !important;
+    padding: 8px !important;
+  }
+
+  td {
+    padding: 6px !important;
+    vertical-align: top !important;
+  }
+
+  /* Evitar quebras de página em elementos importantes */
+  .print\\:keep-together {
+    page-break-inside: avoid;
+  }
+
+  /* Bordas para campos de assinatura */
+  .print\\:border-black {
+    border-color: black !important;
+  }
+
+  /* Remover sombras e efeitos */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Garantir que links sejam visíveis */
+  a {
+    color: black !important;
+    text-decoration: underline !important;
+  }
+
+  /* Configurações específicas para o relatório */
+  .semen-report-header {
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid black;
+    padding-bottom: 10px;
+  }
+
+  .semen-report-summary {
+    margin: 20px 0;
+    padding: 10px;
+    border: 1px solid black;
+  }
+
+  .semen-report-table {
+    margin: 20px 0;
+  }
+
+  .semen-report-signatures {
+    margin-top: 30px;
+    page-break-inside: avoid;
+  }
+
+  .signature-line {
+    border-bottom: 1px solid black;
+    height: 30px;
+    margin: 10px 0;
+  }
+
+  /* Forçar quebra de página antes das assinaturas se necessário */
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  /* Estilos para campos de observação */
+  .observation-lines {
+    border-bottom: 1px dotted black;
+    height: 20px;
+    margin: 5px 0;
+  }
+}

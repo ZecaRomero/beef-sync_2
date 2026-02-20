@@ -1,0 +1,182 @@
+{
+  "name": "Beef-Sync - Sistema de Gestão Pecuária",
+  "short_name": "Beef-Sync",
+  "description": "Sistema completo para gestão de rebanho bovino, controle de estoque de sêmen, transferências de embriões e gestão financeira",
+  "version": "3.0.0",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff",
+  "scope": "/",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/beef-sync-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard principal do Beef-Sync"
+    },
+    {
+      "src": "/screenshots/dashboard-mobile.png",
+      "sizes": "375x667",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dashboard mobile do Beef-Sync"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Novo Animal",
+      "short_name": "Novo Animal",
+      "description": "Cadastrar novo animal no sistema",
+      "url": "/animals?action=new",
+      "icons": [
+        {
+          "src": "/icons/shortcut-animal.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Acessar dashboard principal",
+      "url": "/",
+      "icons": [
+        {
+          "src": "/icons/shortcut-dashboard.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Relatórios",
+      "short_name": "Relatórios",
+      "description": "Gerar relatórios do sistema",
+      "url": "/relatorios",
+      "icons": [
+        {
+          "src": "/icons/shortcut-reports.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Estoque Sêmen",
+      "short_name": "Sêmen",
+      "description": "Gerenciar estoque de sêmen",
+      "url": "/estoque-semen",
+      "icons": [
+        {
+          "src": "/icons/shortcut-semen.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "handle_links": "preferred",
+  "capture_links": "new-client",
+  "file_handlers": [
+    {
+      "action": "/upload",
+      "accept": {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+        "application/vnd.ms-excel": [".xls"],
+        "text/csv": [".csv"]
+      }
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+beefsync",
+      "url": "/animal?id=%s"
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["image/*", "application/pdf", "text/csv"]
+        }
+      ]
+    }
+  },
+  "permissions": [
+    "notifications",
+    "background-sync",
+    "persistent-storage"
+  ],
+  "features": [
+    "Cross Platform",
+    "fast",
+    "simple"
+  ],
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e5b3a"
+}

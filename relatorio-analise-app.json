@@ -1,0 +1,12 @@
+{
+  "data": "2026-02-11T17:00:30.045Z",
+  "errosCriticos": 0,
+  "avisos": 3,
+  "detalhes": {
+    "arquivosComRequire": 12,
+    "variaveisNaoUtilizadas": 3,
+    "hooksComProblemas": 2
+  },
+  "status": "OK",
+  "mensagem": "Nenhum erro crítico encontrado. Sistema funcionando normalmente."
+}

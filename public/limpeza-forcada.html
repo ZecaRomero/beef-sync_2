@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FORÇAR LIMPEZA COMPLETA</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .urgent {
+            background-color: rgba(220, 53, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 3px solid #dc3545;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        button {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+        .success {
+            background-color: rgba(40, 167, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        pre {
+            background-color: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .steps {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 LIMPEZA FORÇADA - URGENTE!</h1>
+        
+        <div class="urgent">
+            <h2>⚠️ PROBLEMA CRÍTICO DETECTADO!</h2>
+            <p><strong>O app ainda está mostrando dados incorretos:</strong></p>
+            <ul>
+                <li>❌ Card "Entradas": 5 (deveria ser 1)</li>
+                <li>❌ Card "Saldo": R$ 0,00 (deveria ser R$ 15.000,00)</li>
+                <li>❌ Tabela: 4 notas (deveria ser 1)</li>
+                <li>❌ Valores: R$ 0,00 (deveria ser R$ 15.000,00)</li>
+            </ul>
+        </div>
+
+        <div class="steps">
+            <h3>🔧 SOLUÇÃO DEFINITIVA:</h3>
+            <div class="step">
+                <strong>1. Limpeza Completa:</strong> Remove TODOS os dados do navegador
+            </div>
+            <div class="step">
+                <strong>2. Recarregamento Forçado:</strong> Força o app a buscar dados do PostgreSQL
+            </div>
+            <div class="step">
+                <strong>3. Verificação:</strong> Confirma que apenas JOAOZINHO aparece
+            </div>
+        </div>
+
+        <h2>🚀 EXECUTAR LIMPEZA FORÇADA:</h2>
+        <button onclick="executarLimpezaForcada()">
+            🧹 LIMPAR TUDO E RECARREGAR
+        </button>
+
+        <div id="status"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function executarLimpezaForcada() {
+            if (confirm('🚨 CONFIRMAR LIMPEZA FORÇADA?\n\nIsso irá:\n- Limpar TODOS os dados do navegador\n- Forçar recarregamento completo\n- Mostrar apenas dados do PostgreSQL\n- Corrigir todos os contadores')) {
+                
+                // Limpar TUDO
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Limpar cookies relacionados
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                document.getElementById('result').innerHTML = 
+                    '<div class="success"><h3>✅ LIMPEZA FORÇADA EXECUTADA!</h3><p>Todos os dados foram removidos. Redirecionando para o app...</p></div>';
+                
+                // Aguardar um pouco e redirecionar
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:3020/notas-fiscais';
+                }, 2000);
+            }
+        }
+
+        // Verificar status atual
+        function verificarStatus() {
+            const notasFiscais = localStorage.getItem('notasFiscais');
+            const sessionData = sessionStorage.getItem('notasFiscais');
+            
+            let statusHtml = '<pre>';
+            statusHtml += '📊 STATUS ATUAL DO NAVEGADOR:\n';
+            statusHtml += `localStorage.notasFiscais: ${notasFiscais ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `sessionStorage.notasFiscais: ${sessionData ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `Cookies: ${document.cookie.length > 0 ? 'PRESENTES ❌' : 'LIMPOS ✅'}\n`;
+            statusHtml += '</pre>';
+            
+            if (notasFiscais || sessionData || document.cookie.length > 0) {
+                statusHtml += '<div class="urgent"><strong>⚠️ DADOS ANTIGOS DETECTADOS!</strong><br>Execute a limpeza forçada.</div>';
+            } else {
+                statusHtml += '<div class="success"><strong>✅ NAVEGADOR LIMPO!</strong><br>Dados corretos devem aparecer.</div>';
+            }
+            
+            document.getElementById('status').innerHTML = statusHtml;
+        }
+
+        // Verificar status ao carregar
+        verificarStatus();
+    </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESTE DE DADOS - Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #007bff, #0056b3);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .debug-section {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        pre {
+            background-color: rgba(0,0,0,0.5);
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        button {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .success {
+            background-color: rgba(40, 167, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .error {
+            background-color: rgba(220, 53, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 TESTE DE DADOS - DEBUG</h1>
+        
+        <div class="debug-section">
+            <h2>📊 Teste da API</h2>
+            <button onclick="testarAPI()">🔍 Testar API</button>
+            <div id="apiResult"></div>
+        </div>
+
+        <div class="debug-section">
+            <h2>🧹 Teste de Limpeza</h2>
+            <button onclick="testarLimpeza()">🧹 Testar Limpeza</button>
+            <div id="limpezaResult"></div>
+        </div>
+
+        <div class="debug-section">
+            <h2>📋 Comparação de Dados</h2>
+            <button onclick="compararDados()">📊 Comparar Dados</button>
+            <div id="comparacaoResult"></div>
+        </div>
+
+        <div class="debug-section">
+            <h2>🚀 Solução Final</h2>
+            <button onclick="executarSolucaoFinal()">🎯 Executar Solução Final</button>
+            <div id="solucaoResult"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testarAPI() {
+            const resultDiv = document.getElementById('apiResult')
+            resultDiv.innerHTML = '<pre>🔄 Testando API...</pre>'
+            
+            try {
+                const response = await fetch('/api/notas-fiscais')
+                const data = await response.json()
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>✅ API Funcionando</h3>
+                        <pre>Status: ${response.status}</pre>
+                        <pre>Total de notas: ${data.count || data.data?.length || 0}</pre>
+                        <pre>Dados: ${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Erro na API</h3>
+                        <pre>${error.message}</pre>
+                    </div>
+                `
+            }
+        }
+
+        function testarLimpeza() {
+            const resultDiv = document.getElementById('limpezaResult')
+            
+            // Limpar tudo
+            localStorage.clear()
+            sessionStorage.clear()
+            
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name))
+                })
+            }
+            
+            if ('indexedDB' in window) {
+                try {
+                    indexedDB.deleteDatabase('notasFiscais')
+                    indexedDB.deleteDatabase('beef-sync')
+                } catch (e) {
+                    console.log('IndexedDB não encontrado')
+                }
+            }
+            
+            resultDiv.innerHTML = `
+                <div class="success">
+                    <h3>✅ Limpeza Executada</h3>
+                    <pre>localStorage: ${localStorage.getItem('notasFiscais') || 'LIMPO'}</pre>
+                    <pre>sessionStorage: ${sessionStorage.getItem('notasFiscais') || 'LIMPO'}</pre>
+                    <pre>Cookies: ${document.cookie.length > 0 ? 'PRESENTES' : 'LIMPOS'}</pre>
+                </div>
+            `
+        }
+
+        async function compararDados() {
+            const resultDiv = document.getElementById('comparacaoResult')
+            resultDiv.innerHTML = '<pre>🔄 Comparando dados...</pre>'
+            
+            try {
+                // Dados da API
+                const apiResponse = await fetch('/api/notas-fiscais')
+                const apiData = await apiResponse.json()
+                
+                // Dados do localStorage
+                const localData = localStorage.getItem('notasFiscais')
+                
+                // Dados do sessionStorage
+                const sessionData = sessionStorage.getItem('notasFiscais')
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>📊 Comparação de Dados</h3>
+                        <pre>API: ${apiData.count || apiData.data?.length || 0} notas</pre>
+                        <pre>localStorage: ${localData ? JSON.parse(localData).length : 0} notas</pre>
+                        <pre>sessionStorage: ${sessionData ? JSON.parse(sessionData).length : 0} notas</pre>
+                        <pre>API Data: ${JSON.stringify(apiData.data, null, 2)}</pre>
+                        <pre>localStorage Data: ${localData || 'VAZIO'}</pre>
+                        <pre>sessionStorage Data: ${sessionData || 'VAZIO'}</pre>
+                    </div>
+                `
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>❌ Erro na Comparação</h3>
+                        <pre>${error.message}</pre>
+                    </div>
+                `
+            }
+        }
+
+        function executarSolucaoFinal() {
+            const resultDiv = document.getElementById('solucaoResult')
+            
+            // Limpeza nuclear
+            localStorage.clear()
+            sessionStorage.clear()
+            
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name))
+                })
+            }
+            
+            if ('indexedDB' in window) {
+                try {
+                    indexedDB.deleteDatabase('notasFiscais')
+                    indexedDB.deleteDatabase('beef-sync')
+                    indexedDB.deleteDatabase('react-query')
+                } catch (e) {
+                    console.log('IndexedDB não encontrado')
+                }
+            }
+            
+            // Limpar cookies
+            document.cookie.split(";").forEach(function(c) { 
+                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+            })
+            
+            resultDiv.innerHTML = `
+                <div class="success">
+                    <h3>✅ Solução Final Executada</h3>
+                    <p>Todos os dados foram limpos. Redirecionando para o app...</p>
+                </div>
+            `
+            
+            // Redirecionar com cache busting
+            setTimeout(() => {
+                window.location.href = '/notas-fiscais?v=' + Date.now() + '&clear=' + Date.now()
+            }, 2000)
+        }
+
+        // Executar teste da API ao carregar
+        window.onload = function() {
+            testarAPI()
+        }
+    </script>
+</body>
+</html>

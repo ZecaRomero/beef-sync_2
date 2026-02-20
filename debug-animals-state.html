@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug - Estado dos Animais</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .debug-title { font-weight: bold; color: #333; margin-bottom: 10px; }
+        .debug-content { background: #f5f5f5; padding: 10px; border-radius: 3px; white-space: pre-wrap; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Estado dos Animais</h1>
+    
+    <div class="debug-section">
+        <div class="debug-title">Ações de Debug</div>
+        <button onclick="checkLocalStorage()">Verificar localStorage</button>
+        <button onclick="checkAPI()">Testar API</button>
+        <button onclick="addTestAnimal()">Adicionar Animal Teste</button>
+        <button onclick="clearData()">Limpar Dados</button>
+    </div>
+    
+    <div class="debug-section">
+        <div class="debug-title">Resultado</div>
+        <div id="result" class="debug-content">Clique em uma ação acima para ver o resultado...</div>
+    </div>
+
+    <script>
+        function log(message) {
+            const result = document.getElementById('result');
+            result.textContent += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        }
+
+        function checkLocalStorage() {
+            log('🔍 Verificando localStorage...');
+            
+            const animalsData = localStorage.getItem('animals');
+            if (animalsData) {
+                try {
+                    const animals = JSON.parse(animalsData);
+                    log(`✅ Encontrados ${animals.length} animais no localStorage`);
+                    if (animals.length > 0) {
+                        log(`🔍 Primeiro animal: ${JSON.stringify(animals[0], null, 2)}`);
+                        log(`🔍 Últimos 3 animais: ${JSON.stringify(animals.slice(-3), null, 2)}`);
+                    }
+                } catch (error) {
+                    log(`❌ Erro ao parsear dados: ${error.message}`);
+                }
+            } else {
+                log('⚠️ Nenhum dado encontrado no localStorage');
+            }
+        }
+
+        function checkAPI() {
+            log('🔍 Testando API /api/animals...');
+            
+            fetch('/api/animals')
+                .then(response => {
+                    log(`📡 Status da resposta: ${response.status} ${response.statusText}`);
+                    return response.json();
+                })
+                .then(data => {
+                    log(`📊 Resposta da API: ${JSON.stringify(data, null, 2)}`);
+                    if (data.success && data.data) {
+                        log(`✅ API funcionando, ${data.data.length} animais encontrados`);
+                    }
+                })
+                .catch(error => {
+                    log(`❌ Erro na API: ${error.message}`);
+                });
+        }
+
+        function addTestAnimal() {
+            log('🔄 Adicionando animal de teste...');
+            
+            const testAnimal = {
+                id: Date.now(),
+                serie: 'TEST',
+                rg: String(Math.floor(Math.random() * 1000)),
+                sexo: 'Macho',
+                raca: 'Nelore',
+                dataNascimento: '2023-01-01',
+                situacao: 'Ativo',
+                meses: 12,
+                custoTotal: 120,
+                pai: 'Pai Teste',
+                avoMaterno: 'Avô Teste'
+            };
+            
+            const existingAnimals = JSON.parse(localStorage.getItem('animals') || '[]');
+            existingAnimals.push(testAnimal);
+            localStorage.setItem('animals', JSON.stringify(existingAnimals));
+            
+            log(`✅ Animal de teste adicionado: ${testAnimal.serie} ${testAnimal.rg}`);
+            log(`📊 Total de animais agora: ${existingAnimals.length}`);
+        }
+
+        function clearData() {
+            log('🧹 Limpando dados...');
+            localStorage.removeItem('animals');
+            log('✅ Dados do localStorage removidos');
+        }
+
+        // Verificação inicial
+        window.onload = function() {
+            log('🚀 Debug iniciado');
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

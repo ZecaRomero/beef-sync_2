@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beef-Sync - Modo Offline</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 500px;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.75rem 1.5rem;
+            border-radius: 50px;
+            margin-bottom: 2rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .features {
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+
+        .feature {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            font-size: 0.95rem;
+        }
+
+        .feature-icon {
+            font-size: 1.2rem;
+        }
+
+        .retry-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 50px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .retry-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🐄</div>
+        
+        <h1>Beef Sync</h1>
+        
+        <div class="status">
+            <div class="status-dot"></div>
+            <span>Modo Offline</span>
+        </div>
+        
+        <p>
+            Você está offline no momento. O Beef Sync continuará funcionando com os dados salvos localmente.
+        </p>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">📱</span>
+                <span>Dados salvos localmente</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔄</span>
+                <span>Sincronização automática quando online</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💾</span>
+                <span>Funcionalidades básicas disponíveis</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔒</span>
+                <span>Dados seguros e criptografados</span>
+            </div>
+        </div>
+        
+        <a href="/" class="retry-btn" onclick="window.location.reload()">
+            Tentar Novamente
+        </a>
+        
+        <div class="footer">
+            <p>Beef Sync v3.0.0 - Sistema de Gestão Pecuária</p>
+        </div>
+    </div>
+
+    <script>
+        // Verificar status de conexão
+        function checkConnection() {
+            if (navigator.onLine) {
+                // Se voltou online, redirecionar para a página principal
+                window.location.href = '/';
+            }
+        }
+
+        // Listener para mudanças de conexão
+        window.addEventListener('online', checkConnection);
+        window.addEventListener('offline', () => {
+            console.log('Modo offline ativado');
+        });
+
+        // Verificar conexão a cada 5 segundos
+        setInterval(checkConnection, 5000);
+
+        // Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('Service Worker registrado:', registration);
+                })
+                .catch(error => {
+                    console.error('Erro ao registrar Service Worker:', error);
+                });
+        }
+    </script>
+</body>
+</html>

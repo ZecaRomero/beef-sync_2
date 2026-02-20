@@ -1,0 +1,3055 @@
+
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
+
+// Hooks customizados
+import useContabilidade from '../../hooks/useContabilidade'
+import useRecipients from '../../hooks/useRecipients'
+
+// Utilitários
+import { 
+  downloadBoletimGado, 
+  enviarPorEmail, 
+  enviarPorWhatsApp, 
+  downloadNotasFiscais, 
+  sendAllReports 
+} from '../../utils/reportUtils'
+
+// Componentes UI
+import { 
+  DocumentTextIcon,
+  DocumentArrowDownIcon,
+  PaperAirplaneIcon,
+  ChartBarIcon,
+  TableCellsIcon,
+  CalendarIcon,
+  UserGroupIcon,
+  TruckIcon,
+  PlusIcon,
+  TrashIcon,
+  EnvelopeIcon,
+  ChatBubbleLeftRightIcon,
+  PencilIcon
+} from '../../components/ui/Icons'
+import Button from '../../components/ui/Button'
+import { Card, CardHeader, CardBody } from '../../components/ui/Card'
+import { Modal } from '../../components/ui/Modal'
+import Input from '../../components/ui/Input'
+import ModernLayout from '../../components/ui/ModernLayout'
+import StatsCard from '../../components/ui/StatsCard'
+import ModernCard, { ModernCardHeader, ModernCardBody } from '../../components/ui/ModernCard'
+import LoadingSpinner from '../../components/ui/LoadingSpinner'
+
+// Componentes específicos da contabilidade
+import ReportCard from '../../components/contabilidade/ReportCard'
+import RecipientsList from '../../components/contabilidade/RecipientsList'
+export default function Contabilidade() {
+  const router = useRouter()
+  
+  // Hooks customizados
+  const {
+    loading,
+    error,
+    reportStats,
+    resumoAnimais,
+    animaisData,
+    nfsEntradasData,
+    nfsSaidasData,
+    loadStats,
+    loadResumoAnimais,
+    setLoading
+  } = useContabilidade()
+
+  const {
+    recipients,
+    selectedRecipients,
+    showAddRecipient,
+    newRecipient,
+    setNewRecipient,
+    setShowAddRecipient,
+    addRecipient,
+    removeRecipient,
+    handleRecipientToggle,
+    resetForm
+  } = useRecipients()
+
+  // Estados locais
+  const [period, setPeriod] = useState(() => {
+    const now = new Date()
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    
+    return {
+      startDate: firstDay.toISOString().split('T')[0],
+      endDate: lastDay.toISOString().split('T')[0]
+    }
+  })
+  
+  const [graficosSelecionados, setGraficosSelecionados] = useState({
+    porRaca: false,
+    porIdade: false,
+    porSexo: false,
+    porSituacao: false
+  })
+  
+  const [recipientData, setRecipientData] = useState({
+    email: '',
+    whatsapp: '',
+    role: 'Contador'
+  })
+  const [showNFDetails, setShowNFDetails] = useState(false)
+  const [selectedNF, setSelectedNF] = useState(null)
+  const [reportStats, setReportStats] = useState({
+    totalAnimals: 0,
+    nfsEntradas: 0,
+    nfsSaidas: 0,
+    movimentacoes: 0
+  })
+  const [showCardDetails, setShowCardDetails] = useState(null)
+  const [resumoAnimais, setResumoAnimais] = useState({
+    totalAnimais: 0,
+    porSexo: { Macho: 0, Fêmea: 0 },
+    porRaca: {}
+  })
+  const [showGraficos, setShowGraficos] = useState(false)
+  const [graficosData, setGraficosData] = useState(null)
+  const [nfsEntradasData, setNfsEntradasData] = useState([])
+  const [nfsSaidasData, setNfsSaidasData] = useState([])
+  const [animaisData, setAnimaisData] = useState([])
+  const [editingAnimal, setEditingAnimal] = useState(null)
+
+  // Carregar dados na inicialização
+  useEffect(() => {
+    const loadData = async () => {
+      await loadStats()
+      loadResumoAnimais()
+    }
+    
+    loadData()
+  }, [loadStats, loadResumoAnimais])
+
+  // Atualizar resumo quando a página receber foco
+  useEffect(() => {
+    const handleFocus = async () => {
+      await loadStats()
+      loadResumoAnimais()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [loadStats, loadResumoAnimais])
+
+  // Fechar modal de detalhes dos cards quando abrir modal de NF
+  useEffect(() => {
+    if (showNFDetails && showCardDetails) {
+      console.log('🔍 Fechando modal de detalhes dos cards para abrir modal de NF')
+      setShowCardDetails(null)
+    }
+  }, [showNFDetails])
+
+  // Debug do estado dos modais
+  useEffect(() => {
+    console.log('🔍 Estados dos modais - showCardDetails:', showCardDetails, 'showNFDetails:', showNFDetails)
+  }, [showCardDetails, showNFDetails])
+
+  // Estados adicionais para modais e gráficos
+  const [showCardDetails, setShowCardDetails] = useState(null)
+  const [showNFDetails, setShowNFDetails] = useState(false)
+  const [selectedNF, setSelectedNF] = useState(null)
+  const [showGraficos, setShowGraficos] = useState(false)
+  const [graficosData, setGraficosData] = useState(null)
+  const [editingAnimal, setEditingAnimal] = useState(null)
+
+  // Fechar modal de detalhes dos cards quando abrir modal de NF
+  useEffect(() => {
+    if (showNFDetails && showCardDetails) {
+      console.log('🔍 Fechando modal de detalhes dos cards para abrir modal de NF')
+      setShowCardDetails(null)
+    }
+  }, [showNFDetails, showCardDetails])
+
+  // Debug do estado dos modais
+  useEffect(() => {
+    console.log('🔍 Estados dos modais - showCardDetails:', showCardDetails, 'showNFDetails:', showNFDetails)
+  }, [showCardDetails, showNFDetails])
+
+  // Funções de navegação e ações
+  const navegarParaEdicaoNF = (nf) => {
+    console.log('🔍 Navegando para edição da NF:', nf)
+    localStorage.setItem('nfParaEdicao', JSON.stringify(nf))
+    router.push('/notas-fiscais')
+  }
+
+  // Handlers para relatórios usando os utilitários
+  const handleDownloadBoletim = (sendToAccounting = false) => {
+    downloadBoletimGado(period, animaisData, sendToAccounting, setLoading)
+  }
+
+  const handleEnviarEmail = () => {
+    enviarPorEmail(period, animaisData, setLoading)
+  }
+
+  const handleEnviarWhatsApp = () => {
+    enviarPorWhatsApp(period, animaisData, setLoading)
+  }
+
+  const handleDownloadNFs = () => {
+    downloadNotasFiscais(period, setLoading)
+  }
+
+  const handleSendAllReports = () => {
+    sendAllReports(period, selectedRecipients, recipients, setLoading)
+  }
+
+  // Função para gerar gráficos (mantida pois é específica da página)
+  const gerarGraficos = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await fetch('/api/contabilidade/graficos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period, animalsData })
+      })
+
+      if (!response.ok) throw new Error('Erro ao gerar gráficos')
+      
+      const dados = await response.json()
+      setGraficosData(dados)
+      setShowGraficos(true)
+      
+      alert('✅ Gráficos gerados com sucesso!')
+      
+    } catch (error) {
+      console.error('Erro ao gerar gráficos:', error)
+      alert('❌ Erro ao gerar gráficos: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Mostrar loading se estiver carregando
+  if (loading && !reportStats.totalAnimals) {
+    return (
+      <ModernLayout
+        title="Relatórios para Contabilidade"
+        subtitle="Carregando dados..."
+        icon="📊"
+      >
+        <div className="flex justify-center items-center min-h-[400px]">
+          <LoadingSpinner size="lg" text="Carregando dados da contabilidade..." />
+        </div>
+      </ModernLayout>
+    )
+  }
+
+  // Mostrar erro se houver
+  if (error) {
+    return (
+      <ModernLayout
+        title="Relatórios para Contabilidade"
+        subtitle="Erro ao carregar dados"
+        icon="📊"
+      >
+        <ModernCard variant="glass" className="border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-900/20">
+          <ModernCardBody>
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-red-500 rounded-xl text-white">
+                <span>⚠️</span>
+              </div>
+              <div>
+                <h3 className="font-semibold text-red-800 dark:text-red-200">
+                  Erro no Sistema
+                </h3>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  {error}
+                </p>
+              </div>
+            </div>
+          </ModernCardBody>
+        </ModernCard>
+      </ModernLayout>
+    )
+    try {
+      // Primeiro tentar carregar da API (PostgreSQL)
+      try {
+        const response = await fetch('/api/animals')
+        if (response.ok) {
+          const result = await response.json()
+          // A API retorna um objeto com propriedade data
+          const animals = Array.isArray(result) ? result : (result.data || [])
+          
+          // Salvar os dados completos dos animais
+          setAnimaisData(animals)
+          
+          const porSexo = animals.reduce((acc, animal) => {
+            const sexo = animal.sexo || 'Não informado'
+            acc[sexo] = (acc[sexo] || 0) + 1
+            return acc
+          }, {})
+
+          const porRaca = animals.reduce((acc, animal) => {
+            const raca = animal.raca || 'Não informado'
+            acc[raca] = (acc[raca] || 0) + 1
+            return acc
+          }, {})
+
+          setResumoAnimais({
+            totalAnimais: animals.length,
+            porSexo,
+            porRaca
+          })
+          
+          console.log('✅ Resumo carregado da API:', animals.length, 'animais')
+          return
+        }
+      } catch (apiError) {
+        console.error('❌ Erro ao conectar com API:', apiError)
+      }
+      
+      // Fallback para localStorage
+      const animals = JSON.parse(localStorage.getItem('animals') || '[]')
+      
+      // Salvar os dados completos dos animais
+      setAnimaisData(animals)
+      
+      const porSexo = animals.reduce((acc, animal) => {
+        const sexo = animal.sexo || 'Não informado'
+        acc[sexo] = (acc[sexo] || 0) + 1
+        return acc
+      }, {})
+
+      const porRaca = animals.reduce((acc, animal) => {
+        const raca = animal.raca || 'Não informado'
+        acc[raca] = (acc[raca] || 0) + 1
+        return acc
+      }, {})
+
+      setResumoAnimais({
+        totalAnimais: animals.length,
+        porSexo,
+        porRaca
+      })
+      
+      console.log('⚠️ Resumo carregado do localStorage:', animals.length, 'animais')
+    } catch (error) {
+      console.error('Erro ao carregar resumo dos animais:', error)
+    }
+  }
+
+  const loadRecipients = () => {
+    const saved = localStorage.getItem('contabilidadeRecipients')
+    if (saved) {
+      setRecipients(JSON.parse(saved))
+    }
+  }
+
+  const saveRecipients = (newRecipients) => {
+    localStorage.setItem('contabilidadeRecipients', JSON.stringify(newRecipients))
+    setRecipients(newRecipients)
+  }
+
+  const navegarParaEdicaoNF = (nf) => {
+    console.log('🔍 Navegando para edição da NF:', nf)
+    // Salvar a NF selecionada no localStorage para a página de notas fiscais
+    localStorage.setItem('nfParaEdicao', JSON.stringify(nf))
+    // Navegar para a página de notas fiscais
+    router.push('/notas-fiscais')
+  }
+
+  const loadStats = async () => {
+    try {
+      // Limpar localStorage para evitar inconsistências
+      localStorage.removeItem('nfsEntradas')
+      localStorage.removeItem('nfsSaidas')
+      localStorage.removeItem('notasFiscais')
+      
+      // Carregar animais da API
+      let totalAnimals = 0
+      try {
+        const animalsResponse = await fetch('/api/animals')
+        if (animalsResponse.ok) {
+          const result = await animalsResponse.json()
+          const animals = Array.isArray(result) ? result : (result.data || [])
+          totalAnimals = animals.length
+        }
+      } catch (error) {
+        console.error('Erro ao carregar animais da API:', error)
+        // Fallback para localStorage
+        const animals = JSON.parse(localStorage.getItem('animals') || '[]')
+        totalAnimals = animals.length
+      }
+
+      // Carregar notas fiscais da API
+      let nfsEntradas = 0
+      let nfsSaidas = 0
+      let nfsEntradasData = []
+      let nfsSaidasData = []
+      
+      try {
+        const nfsResponse = await fetch('/api/notas-fiscais?' + Date.now(), {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        })
+        if (nfsResponse.ok) {
+          const nfs = await nfsResponse.json()
+          const nfsArray = Array.isArray(nfs) ? nfs : (Array.isArray(nfs.data) ? nfs.data : [])
+          
+          nfsEntradasData = nfsArray.filter(nf => nf.tipo === 'entrada')
+          nfsSaidasData = nfsArray.filter(nf => nf.tipo === 'saida')
+          
+          nfsEntradas = nfsEntradasData.length
+          nfsSaidas = nfsSaidasData.length
+        }
+      } catch (error) {
+        console.error('Erro ao carregar NFs da API:', error)
+        // Sem fallback - manter consistência com página de notas fiscais
+        nfsEntradas = 0
+        nfsSaidas = 0
+        nfsEntradasData = []
+        nfsSaidasData = []
+      }
+      
+      setReportStats({
+        totalAnimals,
+        nfsEntradas,
+        nfsSaidas,
+        movimentacoes: nfsEntradas + nfsSaidas
+      })
+      
+      setNfsEntradasData(nfsEntradasData)
+      setNfsSaidasData(nfsSaidasData)
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error)
+    }
+  }
+
+  const loadAnimaisDetalhados = async () => {
+    try {
+      // Tentar carregar da API primeiro
+      const response = await fetch('/api/animals')
+      if (response.ok) {
+        const result = await response.json()
+        const animals = Array.isArray(result) ? result : (result.data || [])
+        setAnimaisData(animals)
+        return
+      }
+    } catch (error) {
+      console.error('Erro ao carregar animais da API:', error)
+    }
+    
+    // Fallback para localStorage
+    const animals = JSON.parse(localStorage.getItem('animals') || '[]')
+    setAnimaisData(animals)
+  }
+
+  const addRecipient = () => {
+    if (!newRecipient.name || (!newRecipient.email && !newRecipient.whatsapp)) {
+      alert('⚠️ Atenção: Nome e Email ou WhatsApp são obrigatórios')
+      return
+    }
+
+    const recipient = {
+      id: Date.now().toString(),
+      ...newRecipient
+    }
+
+    const updatedRecipients = [...recipients, recipient]
+    saveRecipients(updatedRecipients)
+    
+    setNewRecipient({ name: '', email: '', whatsapp: '', role: 'Contador' })
+    setShowAddRecipient(false)
+    alert('✅ Sucesso! Destinatário adicionado com sucesso!')
+  }
+
+  const removeRecipient = (recipientId) => {
+    const updatedRecipients = recipients.filter(r => r.id !== recipientId)
+    saveRecipients(updatedRecipients)
+    setSelectedRecipients(prev => prev.filter(id => id !== recipientId))
+    alert('✅ Sucesso! Destinatário removido com sucesso!')
+  }
+
+  const handleRecipientToggle = (recipientId) => {
+    setSelectedRecipients(prev => 
+      prev.includes(recipientId) 
+        ? prev.filter(id => id !== recipientId)
+        : [...prev, recipientId]
+    )
+  }
+
+  const downloadBoletimGado = async (sendToAccounting = false) => {
+    try {
+      setLoading(true)
+      
+      // Primeiro tentar carregar da API (PostgreSQL)
+      let animalsData = []
+      try {
+        const response = await fetch('/api/animals')
+        if (response.ok) {
+          const result = await response.json()
+          animalsData = Array.isArray(result) ? result : (result.data || [])
+          console.log('✅ Animais carregados da API para boletim:', animalsData.length)
+        } else {
+          throw new Error('API não disponível')
+        }
+      } catch (apiError) {
+        console.error('❌ Erro ao conectar com API, usando localStorage:', apiError)
+        // Fallback para localStorage
+        animalsData = JSON.parse(localStorage.getItem('animals') || '[]')
+        console.log('⚠️ Animais carregados do localStorage:', animalsData.length)
+      }
+      
+      console.log('🔍 Enviando dados para boletim:', {
+        totalAnimais: animalsData.length,
+        sendToAccounting,
+        animais: animalsData.map(a => ({
+          serie: a.serie,
+          rg: a.rg,
+          raca: a.raca,
+          dataNascimento: a.dataNascimento,
+          data_nascimento: a.data_nascimento
+        }))
+      })
+      
+      const response = await fetch('/api/contabilidade/boletim-gado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          period,
+          animalsData,
+          sendToAccounting
+        })
+      })
+
+      if (!response.ok) throw new Error('Erro ao gerar boletim')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `boletim-gado-contabilidade-${period.startDate}-${period.endDate}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      if (sendToAccounting) {
+        alert('✅ Sucesso! Boletim de Gado gerado e enviado para contabilidade!')
+      } else {
+        alert('✅ Sucesso! Boletim de Gado baixado com sucesso!')
+      }
+    } catch (error) {
+      console.error('Erro:', error)
+      alert('❌ Erro: Não foi possível gerar o boletim de gado')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const enviarPorEmail = async () => {
+    try {
+      setLoading(true)
+      
+      // Primeiro tentar carregar da API (PostgreSQL)
+      let animalsData = []
+      try {
+        const response = await fetch('/api/animals')
+        if (response.ok) {
+          const result = await response.json()
+          animalsData = Array.isArray(result) ? result : (result.data || [])
+          console.log('✅ Animais carregados da API para email:', animalsData.length)
+        } else {
+          throw new Error('API não disponível')
+        }
+      } catch (apiError) {
+        console.error('❌ Erro ao conectar com API, usando localStorage:', apiError)
+        animalsData = JSON.parse(localStorage.getItem('animals') || '[]')
+        console.log('⚠️ Animais carregados do localStorage:', animalsData.length)
+      }
+      
+      // Gerar dados do boletim
+      const boletimData = {
+        period,
+        animalsData,
+        sendToAccounting: true
+      }
+      
+      // Criar assunto e corpo do email
+      const assunto = `Boletim de Gado - ${period.startDate} até ${period.endDate}`
+      const corpo = `
+Olá!
+
+Segue em anexo o Boletim de Gado referente ao período de ${period.startDate} até ${period.endDate}.
+
+📊 RESUMO DO PERÍODO:
+• Total de animais: ${animalsData.length}
+• Período: ${period.startDate} até ${period.endDate}
+• Data de geração: ${new Date().toLocaleString('pt-BR')}
+
+O arquivo Excel contém:
+✅ Boletim por Raça
+✅ Resumo Executivo  
+✅ Detalhes dos Animais
+
+Este relatório foi gerado automaticamente pelo sistema Beef Sync.
+
+Atenciosamente,
+Sistema Beef Sync
+      `.trim()
+      
+      // Criar link mailto com Outlook
+      const emailBody = encodeURIComponent(corpo)
+      const emailSubject = encodeURIComponent(assunto)
+      
+      // Tentar abrir Outlook
+      const outlookUrl = `mailto:?subject=${emailSubject}&body=${emailBody}`
+      window.open(outlookUrl, '_blank')
+      
+      alert('✅ Outlook aberto! Cole o arquivo Excel como anexo e envie.')
+      
+    } catch (error) {
+      console.error('Erro ao preparar email:', error)
+      alert('❌ Erro ao preparar email: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const enviarPorWhatsApp = async () => {
+    try {
+      setLoading(true)
+      
+      // Primeiro tentar carregar da API (PostgreSQL)
+      let animalsData = []
+      try {
+        const response = await fetch('/api/animals')
+        if (response.ok) {
+          const result = await response.json()
+          animalsData = Array.isArray(result) ? result : (result.data || [])
+          console.log('✅ Animais carregados da API para WhatsApp:', animalsData.length)
+        } else {
+          throw new Error('API não disponível')
+        }
+      } catch (apiError) {
+        console.error('❌ Erro ao conectar com API, usando localStorage:', apiError)
+        animalsData = JSON.parse(localStorage.getItem('animals') || '[]')
+        console.log('⚠️ Animais carregados do localStorage:', animalsData.length)
+      }
+      
+      // Criar mensagem para WhatsApp
+      const mensagem = `🐄 *BOLETIM DE GADO - BEEF SYNC*
+
+📅 *Período:* ${period.startDate} até ${period.endDate}
+📊 *Total de Animais:* ${animalsData.length}
+
+📈 *Resumo por Sexo:*
+${animalsData.reduce((acc, animal) => {
+  const sexo = animal.sexo || 'Não informado'
+  acc[sexo] = (acc[sexo] || 0) + 1
+  return acc
+}, {})}
+
+📋 *Resumo por Raça:*
+${animalsData.reduce((acc, animal) => {
+  const raca = animal.raca || 'Não informado'
+  acc[raca] = (acc[raca] || 0) + 1
+  return acc
+}, {})}
+
+📊 *Relatório Completo:*
+O arquivo Excel com detalhes completos está sendo gerado...
+
+⏰ *Gerado em:* ${new Date().toLocaleString('pt-BR')}
+
+_Sistema Beef Sync - Gestão de Rebanho_`
+      
+      // Codificar mensagem para URL
+      const mensagemCodificada = encodeURIComponent(mensagem)
+      
+      // Abrir WhatsApp Web
+      const whatsappUrl = `https://web.whatsapp.com/send?text=${mensagemCodificada}`
+      window.open(whatsappUrl, '_blank')
+      
+      alert('✅ WhatsApp Web aberto! A mensagem foi preparada. Envie para o contato desejado.')
+      
+    } catch (error) {
+      console.error('Erro ao preparar WhatsApp:', error)
+      alert('❌ Erro ao preparar WhatsApp: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const enviarNFsPorEmail = async () => {
+    try {
+      setLoading(true)
+      
+      // Criar assunto e corpo do email para NFs
+      const assunto = `Relatório de Notas Fiscais - ${period.startDate} até ${period.endDate}`
+      const corpo = `
+Olá!
+
+Segue em anexo o Relatório de Notas Fiscais referente ao período de ${period.startDate} até ${period.endDate}.
+
+📊 RESUMO DO PERÍODO:
+• Período: ${period.startDate} até ${period.endDate}
+• Data de geração: ${new Date().toLocaleString('pt-BR')}
+
+O arquivo Excel contém:
+✅ Todas as NFs de entrada e saída
+✅ Valores, datas e destinos/origens
+✅ Naturezas de operação
+✅ Resumo financeiro
+
+Este relatório foi gerado automaticamente pelo sistema Beef Sync.
+
+Atenciosamente,
+Sistema Beef Sync
+      `.trim()
+      
+      // Criar link mailto com Outlook
+      const emailBody = encodeURIComponent(corpo)
+      const emailSubject = encodeURIComponent(assunto)
+      
+      // Tentar abrir Outlook
+      const outlookUrl = `mailto:?subject=${emailSubject}&body=${emailBody}`
+      window.open(outlookUrl, '_blank')
+      
+      alert('✅ Outlook aberto! Cole o arquivo Excel das NFs como anexo e envie.')
+      
+    } catch (error) {
+      console.error('Erro ao preparar email das NFs:', error)
+      alert('❌ Erro ao preparar email: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const enviarNFsPorWhatsApp = async () => {
+    try {
+      setLoading(true)
+      
+      // Criar mensagem para WhatsApp sobre NFs
+      const mensagem = `📄 *RELATÓRIO DE NOTAS FISCAIS - BEEF SYNC*
+
+📅 *Período:* ${period.startDate} até ${period.endDate}
+
+📊 *Relatório Completo:*
+O arquivo Excel com todas as Notas Fiscais está sendo gerado...
+
+📋 *Conteúdo do Relatório:*
+✅ Todas as NFs de entrada e saída
+✅ Valores, datas e destinos/origens  
+✅ Naturezas de operação
+✅ Resumo financeiro
+
+⏰ *Gerado em:* ${new Date().toLocaleString('pt-BR')}
+
+_Sistema Beef Sync - Gestão Contábil_`
+      
+      // Codificar mensagem para URL
+      const mensagemCodificada = encodeURIComponent(mensagem)
+      
+      // Abrir WhatsApp Web
+      const whatsappUrl = `https://web.whatsapp.com/send?text=${mensagemCodificada}`
+      window.open(whatsappUrl, '_blank')
+      
+      alert('✅ WhatsApp Web aberto! A mensagem sobre NFs foi preparada. Envie para o contato desejado.')
+      
+    } catch (error) {
+      console.error('Erro ao preparar WhatsApp das NFs:', error)
+      alert('❌ Erro ao preparar WhatsApp: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const compartilharSistema = () => {
+    try {
+      const url = window.location.origin + '/contabilidade'
+      const texto = `🐄 Sistema Beef Sync - Gestão de Rebanho\n\nAcesse: ${url}\n\nGerencie seu rebanho com facilidade!`
+      
+      if (navigator.share) {
+        navigator.share({
+          title: 'Beef Sync - Sistema de Gestão',
+          text: texto,
+          url: url
+        })
+      } else {
+        navigator.clipboard.writeText(texto).then(() => {
+          alert('✅ Link copiado para a área de transferência!')
+        }).catch(() => {
+          alert('❌ Erro ao copiar link')
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao compartilhar:', error)
+      alert('❌ Erro ao compartilhar sistema')
+    }
+  }
+
+  const copiarResumo = async () => {
+    try {
+      setLoading(true)
+      
+      // Primeiro tentar carregar da API (PostgreSQL)
+      let animalsData = []
+      try {
+        const response = await fetch('/api/animals')
+        if (response.ok) {
+          const result = await response.json()
+          animalsData = Array.isArray(result) ? result : (result.data || [])
+        } else {
+          throw new Error('API não disponível')
+        }
+      } catch (apiError) {
+        animalsData = JSON.parse(localStorage.getItem('animals') || '[]')
+      }
+      
+      const resumo = `🐄 RESUMO DO REBANHO - BEEF SYNC
+
+📅 Período: ${period.startDate} até ${period.endDate}
+📊 Total de Animais: ${animalsData.length}
+
+📈 Por Sexo:
+${animalsData.reduce((acc, animal) => {
+  const sexo = animal.sexo || 'Não informado'
+  acc[sexo] = (acc[sexo] || 0) + 1
+  return acc
+}, {})}
+
+📋 Por Raça:
+${animalsData.reduce((acc, animal) => {
+  const raca = animal.raca || 'Não informado'
+  acc[raca] = (acc[raca] || 0) + 1
+  return acc
+}, {})}
+
+⏰ Gerado em: ${new Date().toLocaleString('pt-BR')}
+
+Sistema Beef Sync - Gestão Profissional de Rebanho`
+      
+      await navigator.clipboard.writeText(resumo)
+      alert('✅ Resumo copiado para a área de transferência!')
+      
+    } catch (error) {
+      console.error('Erro ao copiar resumo:', error)
+      alert('❌ Erro ao copiar resumo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const gerarGraficos = async () => {
+    try {
+      setLoading(true)
+      
+      // Primeiro tentar carregar da API (PostgreSQL)
+      let animalsData = []
+      try {
+        const response = await fetch('/api/animals')
+        if (response.ok) {
+          const result = await response.json()
+          animalsData = Array.isArray(result) ? result : (result.data || [])
+          console.log('✅ Animais carregados da API para gráficos:', animalsData.length)
+        } else {
+          throw new Error('API não disponível')
+        }
+      } catch (apiError) {
+        console.error('❌ Erro ao conectar com API, usando localStorage:', apiError)
+        animalsData = JSON.parse(localStorage.getItem('animals') || '[]')
+        console.log('⚠️ Animais carregados do localStorage:', animalsData.length)
+      }
+      
+      // Gerar gráficos
+      const response = await fetch('/api/contabilidade/graficos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period, animalsData })
+      })
+
+      if (!response.ok) throw new Error('Erro ao gerar gráficos')
+      
+      const dados = await response.json()
+      setGraficosData(dados)
+      setShowGraficos(true)
+      
+      alert('✅ Gráficos gerados com sucesso!')
+      
+    } catch (error) {
+      console.error('Erro ao gerar gráficos:', error)
+      alert('❌ Erro ao gerar gráficos: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const compartilharGrafico = async (tipoGrafico, titulo) => {
+    try {
+      if (!graficosData) {
+        alert('❌ Nenhum gráfico disponível. Gere os gráficos primeiro.')
+        return
+      }
+
+      const graficoBase64 = graficosData.graficos[tipoGrafico]
+      if (!graficoBase64) {
+        alert('❌ Gráfico não encontrado.')
+        return
+      }
+
+      // Converter base64 para blob
+      const byteCharacters = atob(graficoBase64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'image/png' })
+
+      // Tentar usar Web Share API para envio direto
+      if (navigator.share && navigator.canShare) {
+        try {
+          await navigator.share({
+            title: `${titulo} - Beef Sync`,
+            text: `Gráfico ${titulo} do período ${period.startDate} até ${period.endDate}`,
+            files: [new File([blob], `grafico_${titulo.replace(/[^a-zA-Z0-9]/g, '_')}.png`, { type: 'image/png' })]
+          })
+          alert('✅ Gráfico enviado diretamente por email!')
+          return
+        } catch (error) {
+          console.log('Web Share API falhou, tentando método alternativo')
+        }
+      }
+
+      // Método alternativo: criar assunto e corpo do email
+      const assunto = `${titulo} - Beef Sync - ${period.startDate} até ${period.endDate}`
+      const corpo = `
+Olá!
+
+Segue em anexo o gráfico "${titulo}" referente ao período de ${period.startDate} até ${period.endDate}.
+
+📊 INFORMAÇÕES DO GRÁFICO:
+• Título: ${titulo}
+• Período: ${period.startDate} até ${period.endDate}
+• Total de animais: ${graficosData.resumo.total}
+• Data de geração: ${new Date().toLocaleString('pt-BR')}
+
+Este gráfico foi gerado automaticamente pelo sistema Beef Sync.
+
+Atenciosamente,
+Sistema Beef Sync
+      `.trim()
+      
+      // Criar link mailto com Outlook
+      const emailBody = encodeURIComponent(corpo)
+      const emailSubject = encodeURIComponent(assunto)
+      
+      // Tentar abrir Outlook
+      const outlookUrl = `mailto:?subject=${emailSubject}&body=${emailBody}`
+      window.open(outlookUrl, '_blank')
+      
+      // Baixar o gráfico automaticamente
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `grafico_${titulo.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      alert('✅ Outlook aberto!\n✅ Gráfico baixado automaticamente!\n\n📧 Agora:\n1. Anexe o gráfico baixado no email\n2. Envie para o destinatário')
+      
+    } catch (error) {
+      console.error('Erro ao compartilhar gráfico:', error)
+      alert('❌ Erro ao compartilhar gráfico: ' + error.message)
+    }
+  }
+
+  const compartilharGraficoWhatsApp = async (tipoGrafico, titulo) => {
+    try {
+      if (!graficosData) {
+        alert('❌ Nenhum gráfico disponível. Gere os gráficos primeiro.')
+        return
+      }
+
+      const graficoBase64 = graficosData.graficos[tipoGrafico]
+      if (!graficoBase64) {
+        alert('❌ Gráfico não encontrado.')
+        return
+      }
+
+      // Criar mensagem para WhatsApp
+      const mensagem = `📊 *${titulo} - BEEF SYNC*
+
+📅 *Período:* ${period.startDate} até ${period.endDate}
+🐄 *Total de Animais:* ${graficosData.resumo.total}
+
+⏰ *Gerado em:* ${new Date().toLocaleString('pt-BR')}
+
+_Sistema Beef Sync - Gestão de Rebanho_`
+      
+      // Converter base64 para blob
+      const byteCharacters = atob(graficoBase64)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'image/png' })
+      
+      // Tentar usar Web Share API para envio direto
+      if (navigator.share && navigator.canShare) {
+        try {
+          await navigator.share({
+            title: `${titulo} - Beef Sync`,
+            text: mensagem,
+            files: [new File([blob], `grafico_${titulo.replace(/[^a-zA-Z0-9]/g, '_')}.png`, { type: 'image/png' })]
+          })
+          alert('✅ Gráfico enviado diretamente via WhatsApp!')
+          return
+        } catch (error) {
+          console.log('Web Share API falhou, tentando método alternativo')
+        }
+      }
+      
+      // Método alternativo: criar link direto para WhatsApp Web
+      const mensagemCodificada = encodeURIComponent(mensagem)
+      const whatsappUrl = `https://web.whatsapp.com/send?text=${mensagemCodificada}`
+      
+      // Abrir WhatsApp Web
+      window.open(whatsappUrl, '_blank')
+      
+      // Criar elemento temporário para download automático
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `grafico_${titulo.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      alert('✅ WhatsApp Web aberto!\n✅ Gráfico baixado automaticamente!\n\n📱 Agora:\n1. Cole a imagem na conversa do WhatsApp\n2. Cole também a mensagem de texto\n3. Envie para o destinatário')
+      
+    } catch (error) {
+      console.error('Erro ao compartilhar gráfico no WhatsApp:', error)
+      alert('❌ Erro ao compartilhar gráfico no WhatsApp: ' + error.message)
+    }
+  }
+
+  const compartilharGraficoWhatsAppFallback = async (tipoGrafico, titulo, mensagem, imageUrl) => {
+    try {
+      // Método alternativo: criar link direto para WhatsApp com imagem
+      const mensagemCodificada = encodeURIComponent(mensagem)
+      
+      // Criar uma nova janela com WhatsApp Web
+      const whatsappWindow = window.open('', '_blank', 'width=800,height=600')
+      
+      // HTML para WhatsApp Web com imagem
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Compartilhar Gráfico - Beef Sync</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              padding: 20px; 
+              background: #f0f0f0;
+              text-align: center;
+            }
+            .container {
+              max-width: 600px;
+              margin: 0 auto;
+              background: white;
+              padding: 20px;
+              border-radius: 10px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .image-container {
+              margin: 20px 0;
+            }
+            img {
+              max-width: 100%;
+              height: auto;
+              border: 2px solid #ddd;
+              border-radius: 8px;
+            }
+            .message {
+              background: #e8f5e8;
+              padding: 15px;
+              border-radius: 8px;
+              margin: 20px 0;
+              white-space: pre-line;
+              text-align: left;
+            }
+            .instructions {
+              background: #fff3cd;
+              padding: 15px;
+              border-radius: 8px;
+              margin: 20px 0;
+              border-left: 4px solid #ffc107;
+            }
+            .button {
+              background: #25d366;
+              color: white;
+              padding: 12px 24px;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 16px;
+              margin: 10px;
+            }
+            .button:hover {
+              background: #128c7e;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h2>📊 Gráfico: ${titulo}</h2>
+            
+            <div class="image-container">
+              <img src="${imageUrl}" alt="${titulo}" />
+            </div>
+            
+            <div class="message">
+              ${mensagem}
+            </div>
+            
+            <div class="instructions">
+              <h3>📱 Como enviar pelo WhatsApp:</h3>
+              <p>1. Clique com o botão direito na imagem acima</p>
+              <p>2. Selecione "Copiar imagem"</p>
+              <p>3. Abra o WhatsApp Web</p>
+              <p>4. Cole a imagem na conversa</p>
+              <p>5. Cole também a mensagem de texto</p>
+            </div>
+            
+            <button class="button" onclick="window.close()">Fechar</button>
+            <button class="button" onclick="copyImage()">📋 Copiar Imagem</button>
+          </div>
+          
+          <script>
+            function copyImage() {
+              const img = document.querySelector('img');
+              img.style.border = '3px solid #25d366';
+              setTimeout(() => {
+                img.style.border = '2px solid #ddd';
+                alert('✅ Imagem destacada! Clique com botão direito e "Copiar imagem"');
+              }, 500);
+            }
+          </script>
+        </body>
+        </html>
+      `
+      
+      whatsappWindow.document.write(htmlContent)
+      whatsappWindow.document.close()
+      
+      alert('✅ Janela aberta com gráfico!\n\n📋 Use as instruções na janela para copiar e enviar pelo WhatsApp.')
+      
+    } catch (error) {
+      console.error('Erro no método alternativo:', error)
+      alert('❌ Erro ao abrir janela de compartilhamento: ' + error.message)
+    }
+  }
+
+  const handleGraficoSelecionado = (tipoGrafico) => {
+    setGraficosSelecionados(prev => ({
+      ...prev,
+      [tipoGrafico]: !prev[tipoGrafico]
+    }))
+  }
+
+  const selecionarTodosGraficos = () => {
+    setGraficosSelecionados({
+      porRaca: true,
+      porIdade: true,
+      porSexo: true,
+      porSituacao: true
+    })
+  }
+
+  const desmarcarTodosGraficos = () => {
+    setGraficosSelecionados({
+      porRaca: false,
+      porIdade: false,
+      porSexo: false,
+      porSituacao: false
+    })
+  }
+
+  const compartilharGraficosSelecionados = async (metodo) => {
+    try {
+      if (!graficosData) {
+        alert('❌ Nenhum gráfico disponível. Gere os gráficos primeiro.')
+        return
+      }
+
+      // Verificar se pelo menos um gráfico está selecionado
+      const graficosSelecionadosList = Object.entries(graficosSelecionados)
+        .filter(([_, selecionado]) => selecionado)
+        .map(([tipo, _]) => tipo)
+
+      if (graficosSelecionadosList.length === 0) {
+        alert('❌ Selecione pelo menos um gráfico para enviar.')
+        return
+      }
+
+      const nomesGraficos = {
+        porRaca: 'Distribuição por Raça',
+        porIdade: 'Distribuição por Classificação Etária',
+        porSexo: 'Distribuição por Sexo',
+        porSituacao: 'Distribuição por Situação'
+      }
+
+      if (metodo === 'email') {
+        // Preparar gráficos selecionados para download
+        const graficosParaDownload = graficosSelecionadosList.map(tipo => ({
+          nome: nomesGraficos[tipo],
+          base64: graficosData.graficos[tipo]
+        }))
+
+        // Tentar usar Web Share API para envio direto de múltiplos arquivos
+        if (navigator.share && navigator.canShare) {
+          try {
+            const files = graficosParaDownload.map(grafico => {
+              const byteCharacters = atob(grafico.base64)
+              const byteNumbers = new Array(byteCharacters.length)
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i)
+              }
+              const byteArray = new Uint8Array(byteNumbers)
+              const blob = new Blob([byteArray], { type: 'image/png' })
+              return new File([blob], `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`, { type: 'image/png' })
+            })
+
+            await navigator.share({
+              title: 'Gráficos Selecionados do Rebanho - Beef Sync',
+              text: `Gráficos selecionados do rebanho referentes ao período de ${period.startDate} até ${period.endDate}`,
+              files: files
+            })
+            alert(`✅ ${graficosSelecionadosList.length} gráfico(s) enviado(s) diretamente por email!`)
+            return
+          } catch (error) {
+            console.log('Web Share API falhou, tentando método alternativo')
+          }
+        }
+
+        // Método alternativo: download automático + Outlook
+        const assunto = `Gráficos Selecionados do Rebanho - ${period.startDate} até ${period.endDate}`
+        const corpo = `
+Olá!
+
+Segue em anexo os gráficos selecionados do rebanho referentes ao período de ${period.startDate} até ${period.endDate}.
+
+📊 GRÁFICOS INCLUÍDOS:
+${graficosSelecionadosList.map(tipo => `• ${nomesGraficos[tipo]}`).join('\n')}
+
+📈 RESUMO DO PERÍODO:
+• Período: ${period.startDate} até ${period.endDate}
+• Total de animais: ${graficosData.resumo.total}
+• Data de geração: ${new Date().toLocaleString('pt-BR')}
+
+Estes gráficos foram gerados automaticamente pelo sistema Beef Sync.
+
+Atenciosamente,
+Sistema Beef Sync
+        `.trim()
+        
+        const emailBody = encodeURIComponent(corpo)
+        const emailSubject = encodeURIComponent(assunto)
+        const outlookUrl = `mailto:?subject=${emailSubject}&body=${emailBody}`
+        window.open(outlookUrl, '_blank')
+        
+        // Baixar gráficos selecionados automaticamente
+        graficosParaDownload.forEach((grafico, index) => {
+          setTimeout(() => {
+            const byteCharacters = atob(grafico.base64)
+            const byteNumbers = new Array(byteCharacters.length)
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i)
+            }
+            const byteArray = new Uint8Array(byteNumbers)
+            const blob = new Blob([byteArray], { type: 'image/png' })
+            
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(blob)
+            link.download = `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+            link.style.display = 'none'
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+          }, index * 500) // Delay de 500ms entre cada download
+        })
+        
+        alert(`✅ Outlook aberto!\n✅ ${graficosSelecionadosList.length} gráfico(s) baixado(s) automaticamente!\n\n📧 Agora:\n1. Anexe os gráficos baixados no email\n2. Envie para o destinatário`)
+        
+      } else if (metodo === 'whatsapp') {
+        // Compartilhar gráficos selecionados por WhatsApp
+        const mensagem = `📊 *GRÁFICOS SELECIONADOS DO REBANHO - BEEF SYNC*
+
+📅 *Período:* ${period.startDate} até ${period.endDate}
+🐄 *Total de Animais:* ${graficosData.resumo.total}
+
+📈 *Gráficos Incluídos:*
+${graficosSelecionadosList.map(tipo => `• ${nomesGraficos[tipo]}`).join('\n')}
+
+📊 *Resumo do Período:*
+• Período: ${period.startDate} até ${period.endDate}
+• Total de animais: ${graficosData.resumo.total}
+• Data de geração: ${new Date().toLocaleString('pt-BR')}
+
+⏰ *Gerado em:* ${new Date().toLocaleString('pt-BR')}
+
+_Sistema Beef Sync - Gestão de Rebanho_`
+        
+        // Preparar gráficos selecionados para download
+        const graficosParaDownload = graficosSelecionadosList.map(tipo => ({
+          nome: nomesGraficos[tipo],
+          base64: graficosData.graficos[tipo]
+        }))
+
+        // Tentar usar Web Share API para envio direto de múltiplos arquivos
+        if (navigator.share && navigator.canShare) {
+          try {
+            const files = graficosParaDownload.map(grafico => {
+              const byteCharacters = atob(grafico.base64)
+              const byteNumbers = new Array(byteCharacters.length)
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i)
+              }
+              const byteArray = new Uint8Array(byteNumbers)
+              const blob = new Blob([byteArray], { type: 'image/png' })
+              return new File([blob], `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`, { type: 'image/png' })
+            })
+
+            await navigator.share({
+              title: 'Gráficos Selecionados do Rebanho - Beef Sync',
+              text: mensagem,
+              files: files
+            })
+            alert(`✅ ${graficosSelecionadosList.length} gráfico(s) enviado(s) diretamente via WhatsApp!`)
+            return
+          } catch (error) {
+            console.log('Web Share API falhou, tentando método alternativo')
+          }
+        }
+
+        // Método alternativo: download automático + WhatsApp Web
+        graficosParaDownload.forEach((grafico, index) => {
+          setTimeout(() => {
+            const byteCharacters = atob(grafico.base64)
+            const byteNumbers = new Array(byteCharacters.length)
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i)
+            }
+            const byteArray = new Uint8Array(byteNumbers)
+            const blob = new Blob([byteArray], { type: 'image/png' })
+            
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(blob)
+            link.download = `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+            link.style.display = 'none'
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+          }, index * 500) // Delay de 500ms entre cada download
+        })
+
+        // Codificar mensagem para URL
+        const mensagemCodificada = encodeURIComponent(mensagem)
+        const whatsappUrl = `https://web.whatsapp.com/send?text=${mensagemCodificada}`
+        window.open(whatsappUrl, '_blank')
+        
+        alert(`✅ WhatsApp Web aberto!\n✅ ${graficosSelecionadosList.length} gráfico(s) baixado(s) automaticamente!\n\n📱 Agora:\n1. Anexe os gráficos baixados no WhatsApp\n2. Cole também a mensagem de texto\n3. Envie para o destinatário`)
+      }
+      
+    } catch (error) {
+      console.error('Erro ao compartilhar gráficos selecionados:', error)
+      alert('❌ Erro ao compartilhar gráficos selecionados: ' + error.message)
+    }
+  }
+
+  const compartilharTodosGraficos = async (metodo) => {
+    try {
+      if (!graficosData) {
+        alert('❌ Nenhum gráfico disponível. Gere os gráficos primeiro.')
+        return
+      }
+
+      const graficos = [
+        { tipo: 'porRaca', titulo: 'Distribuição por Raça' },
+        { tipo: 'porIdade', titulo: 'Distribuição por Classificação Etária' },
+        { tipo: 'porSexo', titulo: 'Distribuição por Sexo' },
+        { tipo: 'porSituacao', titulo: 'Distribuição por Situação' }
+      ]
+
+      if (metodo === 'email') {
+        // Preparar todos os gráficos para download
+        const graficosParaDownload = [
+          { nome: 'Distribuição por Raça', base64: graficosData.graficos.porRaca },
+          { nome: 'Distribuição por Classificação Etária', base64: graficosData.graficos.porIdade },
+          { nome: 'Distribuição por Sexo', base64: graficosData.graficos.porSexo },
+          { nome: 'Distribuição por Situação', base64: graficosData.graficos.porSituacao }
+        ]
+
+        // Tentar usar Web Share API para envio direto de múltiplos arquivos
+        if (navigator.share && navigator.canShare) {
+          try {
+            const files = graficosParaDownload.map(grafico => {
+              const byteCharacters = atob(grafico.base64)
+              const byteNumbers = new Array(byteCharacters.length)
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i)
+              }
+              const byteArray = new Uint8Array(byteNumbers)
+              const blob = new Blob([byteArray], { type: 'image/png' })
+              return new File([blob], `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`, { type: 'image/png' })
+            })
+
+            await navigator.share({
+              title: 'Todos os Gráficos do Rebanho - Beef Sync',
+              text: `Todos os gráficos do rebanho referentes ao período de ${period.startDate} até ${period.endDate}`,
+              files: files
+            })
+            alert('✅ Todos os gráficos enviados diretamente por email!')
+            return
+          } catch (error) {
+            console.log('Web Share API falhou, tentando método alternativo')
+          }
+        }
+
+        // Método alternativo: download automático + Outlook
+        const assunto = `Todos os Gráficos do Rebanho - ${period.startDate} até ${period.endDate}`
+        const corpo = `
+Olá!
+
+Segue em anexo todos os gráficos do rebanho referentes ao período de ${period.startDate} até ${period.endDate}.
+
+📊 GRÁFICOS INCLUÍDOS:
+• Distribuição por Raça
+• Distribuição por Classificação Etária  
+• Distribuição por Sexo
+• Distribuição por Situação
+
+📈 RESUMO DO PERÍODO:
+• Período: ${period.startDate} até ${period.endDate}
+• Total de animais: ${graficosData.resumo.total}
+• Data de geração: ${new Date().toLocaleString('pt-BR')}
+
+Estes gráficos foram gerados automaticamente pelo sistema Beef Sync.
+
+Atenciosamente,
+Sistema Beef Sync
+        `.trim()
+        
+        const emailBody = encodeURIComponent(corpo)
+        const emailSubject = encodeURIComponent(assunto)
+        const outlookUrl = `mailto:?subject=${emailSubject}&body=${emailBody}`
+        window.open(outlookUrl, '_blank')
+        
+        // Baixar todos os gráficos automaticamente
+        graficosParaDownload.forEach((grafico, index) => {
+          setTimeout(() => {
+            const byteCharacters = atob(grafico.base64)
+            const byteNumbers = new Array(byteCharacters.length)
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i)
+            }
+            const byteArray = new Uint8Array(byteNumbers)
+            const blob = new Blob([byteArray], { type: 'image/png' })
+            
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(blob)
+            link.download = `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+            link.style.display = 'none'
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+          }, index * 500) // Delay de 500ms entre cada download
+        })
+        
+        alert('✅ Outlook aberto!\n✅ Todos os 4 gráficos baixados automaticamente!\n\n📧 Agora:\n1. Anexe os 4 gráficos baixados no email\n2. Envie para o destinatário')
+        
+      } else if (metodo === 'whatsapp') {
+        // Compartilhar todos por WhatsApp
+        const mensagem = `📊 *TODOS OS GRÁFICOS DO REBANHO - BEEF SYNC*
+
+📅 *Período:* ${period.startDate} até ${period.endDate}
+🐄 *Total de Animais:* ${graficosData.resumo.total}
+
+📈 *Gráficos Incluídos:*
+• Distribuição por Raça
+• Distribuição por Classificação Etária
+• Distribuição por Sexo  
+• Distribuição por Situação
+
+📊 *Resumo do Período:*
+• Período: ${period.startDate} até ${period.endDate}
+• Total de animais: ${graficosData.resumo.total}
+• Data de geração: ${new Date().toLocaleString('pt-BR')}
+
+⏰ *Gerado em:* ${new Date().toLocaleString('pt-BR')}
+
+_Sistema Beef Sync - Gestão de Rebanho_`
+        
+        // Preparar todos os gráficos para download
+        const graficosParaDownload = [
+          { nome: 'Distribuição por Raça', base64: graficosData.graficos.porRaca },
+          { nome: 'Distribuição por Classificação Etária', base64: graficosData.graficos.porIdade },
+          { nome: 'Distribuição por Sexo', base64: graficosData.graficos.porSexo },
+          { nome: 'Distribuição por Situação', base64: graficosData.graficos.porSituacao }
+        ]
+
+        // Tentar usar Web Share API para envio direto de múltiplos arquivos
+        if (navigator.share && navigator.canShare) {
+          try {
+            const files = graficosParaDownload.map(grafico => {
+              const byteCharacters = atob(grafico.base64)
+              const byteNumbers = new Array(byteCharacters.length)
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i)
+              }
+              const byteArray = new Uint8Array(byteNumbers)
+              const blob = new Blob([byteArray], { type: 'image/png' })
+              return new File([blob], `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`, { type: 'image/png' })
+            })
+
+            await navigator.share({
+              title: 'Todos os Gráficos do Rebanho - Beef Sync',
+              text: mensagem,
+              files: files
+            })
+            alert('✅ Todos os gráficos enviados diretamente via WhatsApp!')
+            return
+          } catch (error) {
+            console.log('Web Share API falhou, tentando método alternativo')
+          }
+        }
+
+        // Método alternativo: download automático + WhatsApp Web
+        graficosParaDownload.forEach((grafico, index) => {
+          setTimeout(() => {
+            const byteCharacters = atob(grafico.base64)
+            const byteNumbers = new Array(byteCharacters.length)
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i)
+            }
+            const byteArray = new Uint8Array(byteNumbers)
+            const blob = new Blob([byteArray], { type: 'image/png' })
+            
+            const link = document.createElement('a')
+            link.href = URL.createObjectURL(blob)
+            link.download = `grafico_${grafico.nome.replace(/[^a-zA-Z0-9]/g, '_')}.png`
+            link.style.display = 'none'
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+          }, index * 500) // Delay de 500ms entre cada download
+        })
+
+        // Codificar mensagem para URL
+        const mensagemCodificada = encodeURIComponent(mensagem)
+        const whatsappUrl = `https://web.whatsapp.com/send?text=${mensagemCodificada}`
+        window.open(whatsappUrl, '_blank')
+        
+        alert('✅ WhatsApp Web aberto!\n✅ Todos os 4 gráficos baixados automaticamente!\n\n📱 Agora:\n1. Anexe os 4 gráficos baixados no WhatsApp\n2. Cole também a mensagem de texto\n3. Envie para o destinatário')
+      }
+      
+    } catch (error) {
+      console.error('Erro ao compartilhar todos os gráficos:', error)
+      alert('❌ Erro ao compartilhar todos os gráficos: ' + error.message)
+    }
+  }
+
+  const downloadNotasFiscais = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await fetch('/api/contabilidade/notas-fiscais', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period })
+      })
+
+      if (!response.ok) throw new Error('Erro ao gerar relatório de NFs')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `notas-fiscais-${period.startDate}-${period.endDate}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      alert('✅ Sucesso! Relatório de Notas Fiscais baixado com sucesso!')
+    } catch (error) {
+      console.error('Erro:', error)
+      alert('❌ Erro: Não foi possível gerar o relatório de notas fiscais')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const downloadMovimentacoes = async () => {
+    try {
+      setLoading(true)
+      
+      const response = await fetch('/api/contabilidade/movimentacoes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ period })
+      })
+
+      if (!response.ok) throw new Error('Erro ao gerar relatório de movimentações')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `movimentacoes-${period.startDate}-${period.endDate}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      alert('✅ Sucesso! Relatório de Movimentações baixado com sucesso!')
+    } catch (error) {
+      console.error('Erro:', error)
+      alert('❌ Erro: Não foi possível gerar o relatório de movimentações')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const sendAllReports = async () => {
+    if (selectedRecipients.length === 0) {
+      alert('⚠️ Atenção: Selecione pelo menos um destinatário')
+      return
+    }
+
+    try {
+      setLoading(true)
+      
+      const selectedRecipientsData = recipients.filter(r => 
+        selectedRecipients.includes(r.id)
+      )
+      
+      const response = await fetch('/api/contabilidade/enviar-relatorios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          period,
+          recipients: selectedRecipientsData
+        })
+      })
+
+      if (!response.ok) throw new Error('Erro ao enviar relatórios')
+      
+      alert(`✅ Sucesso! Relatórios enviados para ${selectedRecipientsData.length} destinatário(s)!`)
+    } catch (error) {
+      console.error('Erro:', error)
+      alert('❌ Erro: Não foi possível enviar os relatórios')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <ModernLayout
+      title="Relatórios para Contabilidade"
+      subtitle="Gere e envie relatórios completos para sua equipe contábil"
+      icon="📊"
+    >
+      <div className="space-y-8">
+
+        {/* Estatísticas Rápidas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatsCard
+            title="Total de Animais"
+            value={reportStats.totalAnimals}
+            subtitle="Rebanho cadastrado"
+            icon={<UserGroupIcon className="h-6 w-6" />}
+            color="blue"
+            onClick={() => setShowCardDetails('total-animais')}
+          />
+
+          <StatsCard
+            title="NFs de Entrada"
+            value={reportStats.nfsEntradas}
+            subtitle="Compras e aquisições"
+            icon={<TruckIcon className="h-6 w-6" />}
+            color="green"
+            onClick={() => router.push('/notas-fiscais?tipo=entrada')}
+          />
+
+          <StatsCard
+            title="NFs de Saída"
+            value={reportStats.nfsSaidas}
+            subtitle="Vendas e transferências"
+            icon={<TruckIcon className="h-6 w-6" />}
+            color="red"
+            onClick={() => router.push('/notas-fiscais?tipo=saida')}
+          />
+
+          <StatsCard
+            title="Total Movimentações"
+            value={reportStats.movimentacoes}
+            subtitle="Entradas + Saídas"
+            icon={<ChartBarIcon className="h-6 w-6" />}
+            color="purple"
+            onClick={() => router.push('/notas-fiscais')}
+          />
+        </div>
+
+        {/* Gráficos Visuais */}
+        <ModernCard variant="gradient" className="mb-8">
+          <ModernCardHeader
+            icon={<ChartBarIcon className="h-6 w-6" />}
+            title="Gráficos Visuais do Rebanho"
+            subtitle="Visualize dados do rebanho em gráficos interativos"
+          />
+          <ModernCardBody>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => gerarGraficos()}
+                loading={loading}
+                modern={true}
+                glow={true}
+                leftIcon={<ChartBarIcon className="h-5 w-5" />}
+              >
+                Gerar Gráficos
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => setShowGraficos(!showGraficos)}
+                modern={true}
+                leftIcon={showGraficos ? '👁️' : '👁️'}
+              >
+                {showGraficos ? 'Ocultar Gráficos' : 'Visualizar Gráficos'}
+              </Button>
+            </div>
+
+          {showGraficos && graficosData && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Gráfico por Raça */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-center">
+                  🐄 Distribuição por Raça
+                </h4>
+                <div className="flex justify-center">
+                  <img 
+                    src={`data:image/png;base64,${graficosData.graficos.porRaca}`} 
+                    alt="Gráfico por Raça"
+                    className="max-w-full h-auto rounded"
+                  />
+                </div>
+                <div className="mt-2 text-center space-y-2">
+                  <div className="flex space-x-2 justify-center">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGrafico('porRaca', 'Distribuição por Raça')}
+                      className="bg-blue-600 hover:bg-blue-700 text-xs"
+                    >
+                      📧 Email
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGraficoWhatsApp('porRaca', 'Distribuição por Raça')}
+                      className="bg-green-500 hover:bg-green-600 text-xs"
+                    >
+                      💬 WhatsApp
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gráfico por Idade */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-center">
+                  📅 Distribuição por Classificação Etária
+                </h4>
+                <div className="flex justify-center">
+                  <img 
+                    src={`data:image/png;base64,${graficosData.graficos.porIdade}`} 
+                    alt="Gráfico por Idade"
+                    className="max-w-full h-auto rounded"
+                  />
+                </div>
+                <div className="mt-2 text-center space-y-2">
+                  <div className="flex space-x-2 justify-center">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGrafico('porIdade', 'Distribuição por Classificação Etária')}
+                      className="bg-blue-600 hover:bg-blue-700 text-xs"
+                    >
+                      📧 Email
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGraficoWhatsApp('porIdade', 'Distribuição por Classificação Etária')}
+                      className="bg-green-500 hover:bg-green-600 text-xs"
+                    >
+                      💬 WhatsApp
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gráfico por Sexo */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-center">
+                  ♂️♀️ Distribuição por Sexo
+                </h4>
+                <div className="flex justify-center">
+                  <img 
+                    src={`data:image/png;base64,${graficosData.graficos.porSexo}`} 
+                    alt="Gráfico por Sexo"
+                    className="max-w-full h-auto rounded"
+                  />
+                </div>
+                <div className="mt-2 text-center space-y-2">
+                  <div className="flex space-x-2 justify-center">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGrafico('porSexo', 'Distribuição por Sexo')}
+                      className="bg-blue-600 hover:bg-blue-700 text-xs"
+                    >
+                      📧 Email
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGraficoWhatsApp('porSexo', 'Distribuição por Sexo')}
+                      className="bg-green-500 hover:bg-green-600 text-xs"
+                    >
+                      💬 WhatsApp
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gráfico por Situação */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-3 text-center">
+                  📊 Distribuição por Situação
+                </h4>
+                <div className="flex justify-center">
+                  <img 
+                    src={`data:image/png;base64,${graficosData.graficos.porSituacao}`} 
+                    alt="Gráfico por Situação"
+                    className="max-w-full h-auto rounded"
+                  />
+                </div>
+                <div className="mt-2 text-center space-y-2">
+                  <div className="flex space-x-2 justify-center">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGrafico('porSituacao', 'Distribuição por Situação')}
+                      className="bg-blue-600 hover:bg-blue-700 text-xs"
+                    >
+                      📧 Email
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => compartilharGraficoWhatsApp('porSituacao', 'Distribuição por Situação')}
+                      className="bg-green-500 hover:bg-green-600 text-xs"
+                    >
+                      💬 WhatsApp
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          </ModernCardBody>
+        </ModernCard>
+
+      {/* Compartilhamento Rápido */}
+      <Card className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 border-blue-200 dark:border-blue-700 mb-6">
+        <CardHeader>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+            <PaperAirplaneIcon className="h-5 w-5 mr-2 text-blue-600" />
+            🚀 Compartilhamento Rápido
+          </h3>
+        </CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Compartilhar Boletim */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                📊 Boletim de Gado
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => enviarPorEmail()}
+                  className="bg-blue-600 hover:bg-blue-700 text-xs"
+                >
+                  📧 Email
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => enviarPorWhatsApp()}
+                  className="bg-green-500 hover:bg-green-600 text-xs"
+                >
+                  💬 WhatsApp
+                </Button>
+              </div>
+            </div>
+
+            {/* Compartilhar NFs */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                📄 Notas Fiscais
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => enviarNFsPorEmail()}
+                  className="bg-blue-600 hover:bg-blue-700 text-xs"
+                >
+                  📧 Email
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => enviarNFsPorWhatsApp()}
+                  className="bg-green-500 hover:bg-green-600 text-xs"
+                >
+                  💬 WhatsApp
+                </Button>
+              </div>
+            </div>
+
+            {/* Compartilhamento Geral */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                🔗 Compartilhar Sistema
+              </h4>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => compartilharSistema()}
+                  className="text-xs"
+                >
+                  🔗 Link
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copiarResumo()}
+                  className="text-xs"
+                >
+                  📋 Copiar
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Compartilhamento de Gráficos */}
+          {graficosData && (
+            <div className="mt-4">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                📊 Compartilhar Gráficos
+              </h4>
+              
+              {/* Seleção de Gráficos */}
+              <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                <h5 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                  ☑️ Selecionar Gráficos para Envio
+                </h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Marque os gráficos que deseja enviar
+                </p>
+                
+                {/* Checkboxes dos Gráficos */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <label className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={graficosSelecionados.porRaca}
+                      onChange={() => handleGraficoSelecionado('porRaca')}
+                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">🐄 Raças</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={graficosSelecionados.porIdade}
+                      onChange={() => handleGraficoSelecionado('porIdade')}
+                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">📅 Classificação</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={graficosSelecionados.porSexo}
+                      onChange={() => handleGraficoSelecionado('porSexo')}
+                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">♂️♀️ Sexo</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-2 cursor-pointer p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={graficosSelecionados.porSituacao}
+                      onChange={() => handleGraficoSelecionado('porSituacao')}
+                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 dark:focus:ring-purple-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">📊 Situação</span>
+                  </label>
+                </div>
+                
+                {/* Botões de Controle */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={selecionarTodosGraficos}
+                    className="bg-gray-500 hover:bg-gray-600 text-xs"
+                  >
+                    ☑️ Selecionar Todos
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={desmarcarTodosGraficos}
+                    className="bg-gray-500 hover:bg-gray-600 text-xs"
+                  >
+                    ☐ Desmarcar Todos
+                  </Button>
+                </div>
+                
+                {/* Botões de Envio */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGraficosSelecionados('email')}
+                    className="bg-blue-600 hover:bg-blue-700 text-xs"
+                    disabled={Object.values(graficosSelecionados).every(v => !v)}
+                  >
+                    📧 Enviar Selecionados por Email
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGraficosSelecionados('whatsapp')}
+                    className="bg-green-500 hover:bg-green-600 text-xs"
+                    disabled={Object.values(graficosSelecionados).every(v => !v)}
+                  >
+                    💬 Enviar Selecionados por WhatsApp
+                  </Button>
+                </div>
+              </div>
+
+              {/* Compartilhamento em Lote */}
+              <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 dark:from-blue-900/20 dark:to-green-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <h5 className="font-semibold text-gray-900 dark:text-white mb-2 flex items-center">
+                  📦 Enviar Todos os Gráficos
+                </h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Envie todos os 4 gráficos de uma vez por email ou WhatsApp
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharTodosGraficos('email')}
+                    className="bg-blue-600 hover:bg-blue-700 text-xs"
+                  >
+                    📧 Todos por Email
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharTodosGraficos('whatsapp')}
+                    className="bg-green-500 hover:bg-green-600 text-xs"
+                  >
+                    💬 Todos por WhatsApp
+                  </Button>
+                </div>
+              </div>
+
+              {/* Compartilhamento Individual */}
+              <div className="space-y-3">
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  📧 Compartilhar Individual por Email:
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGrafico('porRaca', 'Distribuição por Raça')}
+                    className="bg-purple-600 hover:bg-purple-700 text-xs"
+                  >
+                    🐄 Raças
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGrafico('porIdade', 'Distribuição por Classificação Etária')}
+                    className="bg-purple-600 hover:bg-purple-700 text-xs"
+                  >
+                    📅 Classificação
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGrafico('porSexo', 'Distribuição por Sexo')}
+                    className="bg-purple-600 hover:bg-purple-700 text-xs"
+                  >
+                    ♂️♀️ Sexo
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGrafico('porSituacao', 'Distribuição por Situação')}
+                    className="bg-purple-600 hover:bg-purple-700 text-xs"
+                  >
+                    📊 Situação
+                  </Button>
+                </div>
+                
+                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  💬 Compartilhar Individual por WhatsApp:
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGraficoWhatsApp('porRaca', 'Distribuição por Raça')}
+                    className="bg-green-500 hover:bg-green-600 text-xs"
+                  >
+                    🐄 Raças
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGraficoWhatsApp('porIdade', 'Distribuição por Classificação Etária')}
+                    className="bg-green-500 hover:bg-green-600 text-xs"
+                  >
+                    📅 Classificação
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGraficoWhatsApp('porSexo', 'Distribuição por Sexo')}
+                    className="bg-green-500 hover:bg-green-600 text-xs"
+                  >
+                    ♂️♀️ Sexo
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => compartilharGraficoWhatsApp('porSituacao', 'Distribuição por Situação')}
+                    className="bg-green-500 hover:bg-green-600 text-xs"
+                  >
+                    📊 Situação
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Configuração do Período */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <CalendarIcon className="h-5 w-5 mr-2" />
+                Período de Referência
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Data Inicial"
+                  type="date"
+                  value={period.startDate}
+                  onChange={(e) => setPeriod(prev => ({ ...prev, startDate: e.target.value }))}
+                />
+                <Input
+                  label="Data Final"
+                  type="date"
+                  value={period.endDate}
+                  onChange={(e) => setPeriod(prev => ({ ...prev, endDate: e.target.value }))}
+                />
+              </div>
+              
+              <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  💡 <strong>Dica:</strong> Os relatórios incluirão todas as movimentações e dados 
+                  referentes ao período selecionado.
+                </p>
+              </div>
+            </CardBody>
+          </Card>
+
+          {/* Relatórios Disponíveis */}
+          <ModernCard modern={true} hover={true}>
+            <ModernCardHeader
+              icon={<DocumentTextIcon className="h-6 w-6" />}
+              title="Relatórios Disponíveis"
+              subtitle="Gere e compartilhe relatórios profissionais"
+            />
+            <ModernCardBody>
+              <div className="space-y-6">
+                {/* Boletim de Gado */}
+                <ReportCard
+                  title="Boletim de Gado"
+                  description="Relatório detalhado do rebanho por raça e faixas de idade"
+                  icon={<TableCellsIcon className="h-5 w-5" />}
+                  iconColor="from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20"
+                  onDownload={() => handleDownloadBoletim(false)}
+                  onSendToAccounting={() => handleDownloadBoletim(true)}
+                  onEmail={handleEnviarEmail}
+                  onWhatsApp={handleEnviarWhatsApp}
+                  loading={loading}
+                >
+                  {/* Resumo dos Animais */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                        📊 Resumo Atual do Rebanho
+                      </h5>
+                      <button
+                        onClick={loadResumoAnimais}
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+                        title="Atualizar resumo"
+                      >
+                        🔄 Atualizar
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                      {/* Total */}
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                          {resumoAnimais.totalAnimais}
+                        </div>
+                        <div className="text-blue-700 dark:text-blue-300">Total</div>
+                      </div>
+                      
+                      {/* Por Sexo */}
+                      <div className="text-center">
+                        <div className="space-y-1">
+                          {Object.entries(resumoAnimais.porSexo).map(([sexo, quantidade]) => (
+                            <div key={sexo} className="flex justify-between">
+                              <span className="text-blue-700 dark:text-blue-300">{sexo}:</span>
+                              <span className="font-medium text-blue-600 dark:text-blue-400">{quantidade}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Por Raça */}
+                      <div className="text-center">
+                        <div className="space-y-1 max-h-16 overflow-y-auto">
+                          {Object.entries(resumoAnimais.porRaca).slice(0, 3).map(([raca, quantidade]) => (
+                            <div key={raca} className="flex justify-between">
+                              <span className="text-blue-700 dark:text-blue-300 truncate">{raca}:</span>
+                              <span className="font-medium text-blue-600 dark:text-blue-400">{quantidade}</span>
+                            </div>
+                          ))}
+                          {Object.keys(resumoAnimais.porRaca).length > 3 && (
+                            <div className="text-blue-600 dark:text-blue-400 text-xs">
+                              +{Object.keys(resumoAnimais.porRaca).length - 3} mais
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </ReportCard>
+
+                {/* Notas Fiscais */}
+                <ReportCard
+                  title="Notas Fiscais"
+                  description="Compilado de todas as NFs de entrada e saída do período, incluindo valores, datas, destinos/origens e naturezas de operação"
+                  icon={<DocumentTextIcon className="h-5 w-5" />}
+                  iconColor="from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20"
+                  onDownload={handleDownloadNFs}
+                  onSendToAccounting={handleDownloadNFs}
+                  onEmail={() => enviarNFsPorEmail()}
+                  onWhatsApp={() => enviarNFsPorWhatsApp()}
+                  loading={loading}
+                />
+
+                {/* Movimentações */}
+                <ReportCard
+                  title="Movimentações do Mês"
+                  description="Resumo completo de todas as movimentações: vendas, compras, transferências, mortes e outras saídas/entradas do rebanho"
+                  icon={<TruckIcon className="h-5 w-5" />}
+                  iconColor="from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20"
+                  onDownload={() => downloadMovimentacoes()}
+                  loading={loading}
+                />
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        Relatório detalhado do rebanho por raça e faixas de idade:
+                      </p>
+                      <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1 ml-4 mb-4">
+                        <li>• 0 a 3 meses</li>
+                        <li>• 4 a 7 meses</li>
+                        <li>• 8 a 12 meses</li>
+                        <li>• 13 a 24 meses</li>
+                        <li>• 25 a 36 meses</li>
+                        <li>• 37 meses ou mais</li>
+                      </ul>
+
+                      {/* Resumo dos Animais */}
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            📊 Resumo Atual do Rebanho
+                          </h5>
+                          <button
+                            onClick={loadResumoAnimais}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+                            title="Atualizar resumo"
+                          >
+                            🔄 Atualizar
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                          {/* Total */}
+                          <div className="text-center">
+                            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                              {resumoAnimais.totalAnimais}
+                            </div>
+                            <div className="text-blue-700 dark:text-blue-300">Total</div>
+                          </div>
+                          
+                          {/* Por Sexo */}
+                          <div className="text-center">
+                            <div className="space-y-1">
+                              {Object.entries(resumoAnimais.porSexo).map(([sexo, quantidade]) => (
+                                <div key={sexo} className="flex justify-between">
+                                  <span className="text-blue-700 dark:text-blue-300">{sexo}:</span>
+                                  <span className="font-medium text-blue-600 dark:text-blue-400">{quantidade}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Por Raça */}
+                          <div className="text-center">
+                            <div className="space-y-1 max-h-16 overflow-y-auto">
+                              {Object.entries(resumoAnimais.porRaca).slice(0, 3).map(([raca, quantidade]) => (
+                                <div key={raca} className="flex justify-between">
+                                  <span className="text-blue-700 dark:text-blue-300 truncate">{raca}:</span>
+                                  <span className="font-medium text-blue-600 dark:text-blue-400">{quantidade}</span>
+                                </div>
+                              ))}
+                              {Object.keys(resumoAnimais.porRaca).length > 3 && (
+                                <div className="text-blue-600 dark:text-blue-400 text-xs">
+                                  +{Object.keys(resumoAnimais.porRaca).length - 3} mais
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
+                        onClick={() => downloadBoletimGado(false)}
+                        loading={loading}
+                        modern={true}
+                      >
+                        Baixar Excel
+                      </Button>
+                      <Button
+                        variant="success"
+                        size="sm"
+                        leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
+                        onClick={() => downloadBoletimGado(true)}
+                        loading={loading}
+                        modern={true}
+                        glow={true}
+                      >
+                        Contabilidade
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={<EnvelopeIcon className="h-4 w-4" />}
+                        onClick={() => enviarPorEmail()}
+                        loading={loading}
+                        modern={true}
+                      >
+                        Email
+                      </Button>
+                      <Button
+                        variant="success"
+                        size="sm"
+                        leftIcon={<ChatBubbleLeftRightIcon className="h-4 w-4" />}
+                        onClick={() => enviarPorWhatsApp()}
+                        loading={loading}
+                        modern={true}
+                      >
+                        WhatsApp
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notas Fiscais */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-6 hover:shadow-lg transition-all duration-300">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="p-2 bg-green-500 rounded-xl text-white">
+                          <DocumentTextIcon className="h-5 w-5" />
+                        </div>
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                          Notas Fiscais
+                        </h4>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Compilado de todas as NFs de entrada e saída do período, incluindo:
+                        valores, datas, destinos/origens e naturezas de operação.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
+                        onClick={downloadNotasFiscais}
+                        loading={loading}
+                      >
+                        📥 Baixar Excel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={<EnvelopeIcon className="h-4 w-4" />}
+                        onClick={() => enviarNFsPorEmail()}
+                        loading={loading}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        📧 Email
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={<ChatBubbleLeftRightIcon className="h-4 w-4" />}
+                        onClick={() => enviarNFsPorWhatsApp()}
+                        loading={loading}
+                        className="bg-green-500 hover:bg-green-600"
+                      >
+                        💬 WhatsApp
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={<PaperAirplaneIcon className="h-4 w-4" />}
+                        onClick={() => downloadNotasFiscais()}
+                        loading={loading}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        📊 Contabilidade
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Movimentações */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-2xl p-6 hover:shadow-lg transition-all duration-300">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className="p-2 bg-purple-500 rounded-xl text-white">
+                          <TruckIcon className="h-5 w-5" />
+                        </div>
+                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                          Movimentações do Mês
+                        </h4>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Resumo completo de todas as movimentações: vendas, compras, transferências,
+                        mortes e outras saídas/entradas do rebanho.
+                      </p>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
+                      onClick={downloadMovimentacoes}
+                      loading={loading}
+                    >
+                      Baixar Excel
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </ModernCardBody>
+          </ModernCard>
+        </div>
+
+        {/* Painel de Destinatários */}
+        <div className="space-y-6">
+          <RecipientsList
+            recipients={recipients}
+            selectedRecipients={selectedRecipients}
+            onToggleRecipient={handleRecipientToggle}
+            onRemoveRecipient={removeRecipient}
+            onAddRecipient={() => setShowAddRecipient(true)}
+          />
+              {recipients.length === 0 ? (
+                <div className="text-center py-8">
+                  <UserGroupIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    Nenhum destinatário cadastrado
+                  </p>
+                  <Button
+                    variant="primary"
+                    onClick={() => setShowAddRecipient(true)}
+                    leftIcon={<PlusIcon className="h-4 w-4" />}
+                  >
+                    Adicionar Destinatário
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recipients.map((recipient) => (
+                    <div
+                      key={recipient.id}
+                      className={`p-3 rounded-lg border transition-colors ${
+                        selectedRecipients.includes(recipient.id)
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {recipient.name}
+                          </h4>
+                          {recipient.email && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              📧 {recipient.email}
+                            </p>
+                          )}
+                          {recipient.whatsapp && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              📱 {recipient.whatsapp}
+                            </p>
+                          )}
+                          <span className="inline-block mt-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                            {recipient.role}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedRecipients.includes(recipient.id)}
+                            onChange={() => handleRecipientToggle(recipient.id)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <button
+                            onClick={() => removeRecipient(recipient.id)}
+                            className="text-red-500 hover:text-red-700 p-1"
+                            title="Remover destinatário"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ModernCardBody>
+          </ModernCard>
+
+          {/* Ações */}
+          <ModernCard variant="premium" modern={true} hover={true} glow={true}>
+            <ModernCardHeader
+              icon={<PaperAirplaneIcon className="h-6 w-6" />}
+              title="Enviar Relatórios"
+              subtitle="Envie todos os relatórios de uma vez"
+            />
+            <ModernCardBody>
+              <div className="space-y-3">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  leftIcon={<PaperAirplaneIcon className="h-5 w-5" />}
+                  onClick={handleSendAllReports}
+                  loading={loading}
+                  disabled={selectedRecipients.length === 0}
+                  modern={true}
+                  glow={true}
+                >
+                  Enviar Todos os Relatórios
+                </Button>
+                
+                {selectedRecipients.length > 0 && (
+                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                    <p className="text-sm text-green-800 dark:text-green-200">
+                      ✓ {selectedRecipients.length} destinatário(s) selecionado(s)
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                  <p className="text-xs text-blue-800 dark:text-blue-200">
+                    💡 Os 3 relatórios (Boletim de Gado, Notas Fiscais e Movimentações) 
+                    serão enviados automaticamente para os destinatários selecionados.
+                  </p>
+                </div>
+              </div>
+            </ModernCardBody>
+          </ModernCard>
+        </div>
+      </div>
+
+      {/* Modal Adicionar Destinatário */}
+      <Modal
+        isOpen={showAddRecipient}
+        onClose={() => {
+          setShowAddRecipient(false)
+          setNewRecipient({ name: '', email: '', whatsapp: '', role: 'Contador' })
+        }}
+        title="Adicionar Destinatário"
+        size="md"
+      >
+        <div className="space-y-4">
+          <Input
+            label="📝 Nome Completo"
+            value={newRecipient.name}
+            onChange={(e) => setNewRecipient(prev => ({ ...prev, name: e.target.value }))}
+            placeholder="Ex: João Silva"
+            required
+          />
+          
+          <Input
+            label="📧 Email"
+            type="email"
+            value={newRecipient.email}
+            onChange={(e) => setNewRecipient(prev => ({ ...prev, email: e.target.value }))}
+            placeholder="Ex: contador@empresa.com.br"
+          />
+          
+          <Input
+            label="📱 WhatsApp (opcional)"
+            value={newRecipient.whatsapp}
+            onChange={(e) => setNewRecipient(prev => ({ ...prev, whatsapp: e.target.value }))}
+            placeholder="Ex: (11) 99999-9999"
+          />
+          
+          <Input
+            label="👤 Função/Cargo"
+            value={newRecipient.role}
+            onChange={(e) => setNewRecipient(prev => ({ ...prev, role: e.target.value }))}
+            placeholder="Ex: Contador, Escritório Contábil"
+          />
+
+          <div className="flex space-x-3 pt-4">
+            <Button
+              variant="primary"
+              className="flex-1"
+              onClick={addRecipient}
+              modern={true}
+            >
+              Adicionar
+            </Button>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={resetForm}
+              modern={true}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Detalhes dos Cards - NFs de Entrada/Saída/Movimentações */}
+      {console.log('🔍 Estado do modal de cards - showCardDetails:', showCardDetails)}
+      {showCardDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {getCardDetailsTitle(showCardDetails)}
+                </h3>
+                <button
+                  onClick={() => setShowCardDetails(null)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {getCardDetailsContent(showCardDetails, { nfsEntradasData, nfsSaidasData, reportStats, navegarParaEdicaoNF, animaisData })}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => setShowCardDetails(null)}
+              >
+                Fechar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </ModernLayout>
+  )
+}
+
+function getCardDetailsTitle(cardType) {
+  switch (cardType) {
+    case 'total-animais':
+      return '📊 Total de Animais - Detalhes'
+    case 'nfs-entradas':
+      return '📥 Notas Fiscais de Entrada'
+    case 'nfs-saidas':
+      return '📤 Notas Fiscais de Saída'
+    case 'total-movimentacoes':
+      return '🔄 Total de Movimentações'
+    default:
+      return 'Detalhes'
+  }
+}
+
+function getCardDetailsContent(cardType, data = {}) {
+    const { nfsEntradasData = [], nfsSaidasData = [], reportStats = {}, navegarParaEdicaoNF, animaisData = [] } = data
+    
+    switch (cardType) {
+      case 'total-animais':
+        const animals = animaisData
+
+        return (
+          <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Total de {animals.length} animais</strong> cadastrados no sistema.
+              </p>
+            </div>
+            
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2 sticky top-0 bg-white dark:bg-gray-800 py-2">Lista de Animais:</h4>
+              {animals.length > 0 ? (
+                animals.map((animal) => (
+                  <div 
+                    key={animal.id} 
+                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900 dark:text-white">
+                            {animal.nome || 'Sem nome'}
+                          </span>
+                          {animal.brinco && (
+                            <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                              🏷️ {animal.brinco}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-0.5">
+                          <div>
+                            <strong>Sexo:</strong> {animal.sexo === 'M' ? '♂️ Macho' : animal.sexo === 'F' ? '♀️ Fêmea' : animal.sexo} • 
+                            <strong> Raça:</strong> {animal.raca || 'Não informada'}
+                          </div>
+                          {animal.data_nascimento && (
+                            <div>
+                              <strong>Nascimento:</strong> {new Date(animal.data_nascimento).toLocaleDateString('pt-BR')}
+                            </div>
+                          )}
+                          {animal.situacao && (
+                            <div>
+                              <strong>Situação:</strong> {animal.situacao}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 ml-3">
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Deseja editar o animal ${animal.nome || animal.brinco}?`)) {
+                              window.location.href = `/animals?edit=${animal.id}`
+                            }
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                          title="Editar animal"
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Tem certeza que deseja excluir o animal ${animal.nome || animal.brinco}?\n\nEsta ação não pode ser desfeita!`)) {
+                              try {
+                                const response = await fetch(`/api/animals/${animal.id}`, {
+                                  method: 'DELETE'
+                                })
+                                
+                                if (response.ok) {
+                                  alert('Animal excluído com sucesso!')
+                                  window.location.reload()
+                                } else {
+                                  alert('Erro ao excluir animal. Tente novamente.')
+                                }
+                              } catch (error) {
+                                console.error('Erro ao excluir animal:', error)
+                                alert('Erro ao excluir animal. Verifique sua conexão.')
+                              }
+                            }
+                          }}
+                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          title="Excluir animal"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  Nenhum animal cadastrado
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
+      case 'nfs-entradas':
+        // Usar dados do banco carregados dinamicamente
+        const nfsEntradas = nfsEntradasData
+        
+        return (
+          <div className="space-y-4">
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+              <p className="text-sm text-green-800 dark:text-green-200">
+                <strong>Definição:</strong> Notas fiscais de entrada registradas no período selecionado.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-900 dark:text-white">Notas Fiscais de Entrada:</h4>
+              {nfsEntradas.length > 0 ? (
+                nfsEntradas.map((nf, index) => (
+                  <div 
+                    key={index} 
+                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => {
+                      console.log('🔍 NF de entrada clicada:', nf)
+                      console.log('🔍 Dados da NF:', {
+                        numero: nf.numero_nf || nf.numero,
+                        fornecedor: nf.fornecedor,
+                        itens: nf.itens
+                      })
+                      navegarParaEdicaoNF(nf)
+                    }}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">
+                          NF: {nf.numero_nf || nf.numero || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {nf.data || nf.data_compra || 'Data não informada'} • {nf.fornecedor || 'Fornecedor não informado'}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-green-600 dark:text-green-400">
+                          R$ {nf.valor_total || nf.valor ? parseFloat(nf.valor_total || nf.valor).toFixed(2) : '0,00'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Clique para editar NF
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  Nenhuma nota fiscal de entrada registrada
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
+      case 'nfs-saidas':
+        // Usar dados do banco carregados dinamicamente
+        const nfsSaidas = nfsSaidasData
+        
+        return (
+          <div className="space-y-4">
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+              <p className="text-sm text-red-800 dark:text-red-200">
+                <strong>Definição:</strong> Notas fiscais de saída registradas no período selecionado.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <h4 className="font-medium text-gray-900 dark:text-white">Notas Fiscais de Saída:</h4>
+              {nfsSaidas.length > 0 ? (
+                nfsSaidas.map((nf, index) => (
+                  <div 
+                    key={index} 
+                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    onClick={() => {
+                      console.log('🔍 NF de saída clicada:', nf)
+                      console.log('🔍 Dados da NF:', {
+                        numero: nf.numero_nf || nf.numero,
+                        destino: nf.destino || nf.cliente,
+                        itens: nf.itens
+                      })
+                      navegarParaEdicaoNF(nf)
+                    }}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-white">
+                          NF: {nf.numero_nf || nf.numero || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {nf.data || nf.data_compra || 'Data não informada'} • {nf.destino || nf.cliente || 'Cliente não informado'}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-red-600 dark:text-red-400">
+                          R$ {nf.valor_total || nf.valor ? parseFloat(nf.valor_total || nf.valor).toFixed(2) : '0,00'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          Clique para editar NF
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  Nenhuma nota fiscal de saída registrada
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
+      case 'total-movimentacoes':
+        // Usar dados do banco em vez do localStorage
+        const totalEntradas = reportStats.nfsEntradas
+        const totalSaidas = reportStats.nfsSaidas
+        const totalMovimentacoes = reportStats.movimentacoes
+        
+        return (
+          <div className="space-y-4">
+            <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+              <p className="text-sm text-purple-800 dark:text-purple-200">
+                <strong>Definição:</strong> Total de movimentações (entradas + saídas) registradas no período selecionado.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div 
+                  className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all duration-200 group"
+                  onClick={() => {
+                    router.push('/notas-fiscais?tipo=entrada')
+                  }}
+                  title="Clique para ver as notas fiscais de entrada"
+                >
+                  <div className="text-2xl font-bold text-green-600 dark:text-green-400 group-hover:text-green-700 dark:group-hover:text-green-300">
+                    {totalEntradas}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-green-600 dark:group-hover:text-green-400">
+                    Entradas
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    👆 Clique para ver detalhes
+                  </div>
+                </div>
+                <div 
+                  className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-600 transition-all duration-200 group"
+                  onClick={() => {
+                    router.push('/notas-fiscais?tipo=saida')
+                  }}
+                  title="Clique para ver as notas fiscais de saída"
+                >
+                  <div className="text-2xl font-bold text-red-600 dark:text-red-400 group-hover:text-red-700 dark:group-hover:text-red-300">
+                    {totalSaidas}
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400">
+                    Saídas
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    👆 Clique para ver detalhes
+                  </div>
+                </div>
+              </div>
+              
+              <div 
+                className="p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-800/30 hover:border-purple-300 dark:hover:border-purple-500 transition-all duration-200 group"
+                onClick={() => {
+                  router.push('/notas-fiscais?tipo=todas')
+                }}
+                title="Clique para ver todas as notas fiscais"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="font-bold text-gray-900 dark:text-white group-hover:text-purple-700 dark:group-hover:text-purple-300">
+                    TOTAL DE MOVIMENTAÇÕES
+                  </div>
+                  <div className="font-bold text-purple-600 dark:text-purple-400 text-lg group-hover:text-purple-700 dark:group-hover:text-purple-300">
+                    {totalMovimentacoes}
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-500 mt-2 opacity-0 group-hover:opacity-100 transition-opacity text-center">
+                  👆 Clique para ver todas as notas fiscais
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+
+      default:
+        return <div>Detalhes não disponíveis</div>
+    }
+  }

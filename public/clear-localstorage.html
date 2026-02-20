@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limpeza do localStorage - Notas Fiscais</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .danger {
+            background-color: #dc3545;
+        }
+        .danger:hover {
+            background-color: #c82333;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpeza do localStorage - Notas Fiscais</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Atenção:</strong> Esta página irá limpar os dados de notas fiscais armazenados no localStorage do seu navegador.
+        </div>
+
+        <h2>📊 Status Atual do localStorage:</h2>
+        <div id="status"></div>
+
+        <h2>🔧 Ações Disponíveis:</h2>
+        <button onclick="checkStatus()">Verificar Status</button>
+        <button onclick="clearNotasFiscais()" class="danger">Limpar Notas Fiscais</button>
+        <button onclick="clearAll()" class="danger">Limpar Tudo</button>
+        <button onclick="goToApp()">Ir para o App</button>
+
+        <h2>📝 Informações:</h2>
+        <p>O problema que você está enfrentando é que o frontend está mostrando dados antigos do localStorage, enquanto o banco de dados PostgreSQL tem apenas 3 notas fiscais.</p>
+        
+        <p>Após limpar o localStorage, o app irá:</p>
+        <ul>
+            <li>✅ Carregar apenas os dados do banco PostgreSQL</li>
+            <li>✅ Mostrar apenas as 3 notas fiscais reais</li>
+            <li>✅ Permitir exclusões funcionais</li>
+        </ul>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function checkStatus() {
+            const notasFiscais = localStorage.getItem('notasFiscais');
+            const nfParaEdicao = localStorage.getItem('nfParaEdicao');
+            
+            let statusHtml = '<pre>';
+            statusHtml += '📋 Dados no localStorage:\n';
+            statusHtml += `notasFiscais: ${notasFiscais ? JSON.parse(notasFiscais).length + ' itens' : 'não encontrado'}\n`;
+            statusHtml += `nfParaEdicao: ${nfParaEdicao || 'não encontrado'}\n`;
+            statusHtml += '</pre>';
+            
+            document.getElementById('status').innerHTML = statusHtml;
+        }
+
+        function clearNotasFiscais() {
+            localStorage.removeItem('notasFiscais');
+            localStorage.removeItem('nfParaEdicao');
+            
+            document.getElementById('result').innerHTML = 
+                '<div class="success">✅ Notas fiscais removidas do localStorage com sucesso!</div>';
+            
+            checkStatus();
+        }
+
+        function clearAll() {
+            if (confirm('Tem certeza que deseja limpar TODOS os dados do localStorage?')) {
+                localStorage.clear();
+                document.getElementById('result').innerHTML = 
+                    '<div class="success">✅ Todo o localStorage foi limpo!</div>';
+                checkStatus();
+            }
+        }
+
+        function goToApp() {
+            window.open('http://localhost:3020/notas-fiscais', '_blank');
+        }
+
+        // Verificar status ao carregar a página
+        checkStatus();
+    </script>
+</body>
+</html>

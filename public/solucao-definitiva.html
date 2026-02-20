@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOLUÇÃO DEFINITIVA - Forçar Limpeza</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .critical {
+            background-color: rgba(220, 53, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 3px solid #dc3545;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        button {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+        .success {
+            background-color: rgba(40, 167, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        pre {
+            background-color: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .steps {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+        .code-block {
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            margin: 10px 0;
+            border-left: 4px solid #ffc107;
+        }
+        .warning {
+            background-color: rgba(255, 193, 7, 0.8);
+            color: #000;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 5px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 SOLUÇÃO DEFINITIVA - PROBLEMA DE EXCLUSÃO</h1>
+        
+        <div class="critical">
+            <h2>⚠️ PROBLEMA CRÍTICO IDENTIFICADO!</h2>
+            <p><strong>O botão "OK" não exclui as notas porque:</strong></p>
+            <ul>
+                <li>❌ Frontend tenta excluir IDs que não existem (erro 404)</li>
+                <li>❌ Estado React ainda tem dados antigos</li>
+                <li>❌ Cache persistente no navegador</li>
+                <li>❌ Múltiplas APIs carregando dados diferentes</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <h2>🔍 DIAGNÓSTICO:</h2>
+            <p>O console mostra "✅ Dados carregados da API e localStorage limpo", mas o app ainda exibe 4-5 notas antigas. Isso indica que há dados sendo carregados de outro lugar.</p>
+        </div>
+
+        <div class="steps">
+            <h3>🔧 SOLUÇÃO DEFINITIVA:</h3>
+            <div class="step">
+                <strong>1. Limpeza Completa do Navegador:</strong> Remove TODOS os dados
+            </div>
+            <div class="step">
+                <strong>2. Reinicialização do Servidor:</strong> Força recarregamento do código
+            </div>
+            <div class="step">
+                <strong>3. Verificação da API:</strong> Confirma dados corretos
+            </div>
+        </div>
+
+        <h2>🚀 EXECUTAR SOLUÇÃO DEFINITIVA:</h2>
+        <button onclick="executarSolucaoDefinitiva()">
+            🧹 SOLUÇÃO DEFINITIVA + REINICIAR SERVIDOR
+        </button>
+
+        <div class="steps">
+            <h3>📋 OU EXECUTE MANUALMENTE:</h3>
+            <div class="code-block">
+                // 1. Feche TODAS as abas do localhost:3020<br>
+                // 2. Abra o DevTools (F12) em qualquer aba<br>
+                // 3. Vá para Console<br>
+                // 4. Execute este código:<br><br>
+                localStorage.clear();<br>
+                sessionStorage.clear();<br>
+                if ('caches' in window) {<br>
+                &nbsp;&nbsp;caches.keys().then(names => {<br>
+                &nbsp;&nbsp;&nbsp;&nbsp;names.forEach(name => caches.delete(name));<br>
+                &nbsp;&nbsp;});<br>
+                }<br>
+                // 5. Feche TODAS as abas<br>
+                // 6. Abra uma nova aba<br>
+                // 7. Acesse: http://localhost:3020/notas-fiscais
+            </div>
+        </div>
+
+        <div class="steps">
+            <h3>🔄 REINICIAR SERVIDOR:</h3>
+            <div class="code-block">
+                // No terminal, execute:<br>
+                // 1. Ctrl+C (para parar o servidor)<br>
+                // 2. npm run dev<br>
+                // 3. Aguarde o servidor reiniciar<br>
+                // 4. Acesse o app novamente
+            </div>
+        </div>
+
+        <div id="status"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function executarSolucaoDefinitiva() {
+            if (confirm('🚨 CONFIRMAR SOLUÇÃO DEFINITIVA?\n\nIsso irá:\n- Limpar TODOS os dados do navegador\n- Limpar cache e IndexedDB\n- Forçar recarregamento completo\n- Redirecionar para o app')) {
+                
+                // Limpeza COMPLETA
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Limpar IndexedDB se existir
+                if ('indexedDB' in window) {
+                    try {
+                        indexedDB.deleteDatabase('notasFiscais');
+                        indexedDB.deleteDatabase('beef-sync');
+                        indexedDB.deleteDatabase('react-query');
+                    } catch (e) {
+                        console.log('IndexedDB não encontrado');
+                    }
+                }
+                
+                // Limpar cache do navegador
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => caches.delete(name));
+                    });
+                }
+                
+                // Limpar cookies relacionados
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                // Limpar cache do service worker se existir
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        for(let registration of registrations) {
+                            registration.unregister();
+                        }
+                    });
+                }
+                
+                document.getElementById('result').innerHTML = 
+                    '<div class="success"><h3>✅ LIMPEZA DEFINITIVA EXECUTADA!</h3><p>Todos os dados foram removidos. Redirecionando para o app...</p></div>';
+                
+                // Aguardar e redirecionar com cache busting
+                setTimeout(() => {
+                    const baseUrl = window.location.href.split('?')[0];
+                    window.location.href = baseUrl + '?v=' + Date.now() + '&clear=' + Date.now();
+                }, 2000);
+            }
+        }
+
+        // Verificar status atual
+        function verificarStatus() {
+            const notasFiscais = localStorage.getItem('notasFiscais');
+            const sessionData = sessionStorage.getItem('notasFiscais');
+            const nfParaEdicao = localStorage.getItem('nfParaEdicao');
+            
+            let statusHtml = '<pre>';
+            statusHtml += '📊 STATUS ATUAL DO NAVEGADOR:\n';
+            statusHtml += `localStorage.notasFiscais: ${notasFiscais ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `localStorage.nfParaEdicao: ${nfParaEdicao ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `sessionStorage.notasFiscais: ${sessionData ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `Cookies: ${document.cookie.length > 0 ? 'PRESENTES ❌' : 'LIMPOS ✅'}\n`;
+            statusHtml += `Cache: ${'caches' in window ? 'DISPONÍVEL' : 'NÃO DISPONÍVEL'}\n`;
+            statusHtml += '</pre>';
+            
+            if (notasFiscais || sessionData || nfParaEdicao || document.cookie.length > 0) {
+                statusHtml += '<div class="critical"><strong>⚠️ DADOS ANTIGOS DETECTADOS!</strong><br>Execute a solução definitiva.</div>';
+            } else {
+                statusHtml += '<div class="success"><strong>✅ NAVEGADOR LIMPO!</strong><br>Dados corretos devem aparecer.</div>';
+            }
+            
+            document.getElementById('status').innerHTML = statusHtml;
+        }
+
+        // Verificar status ao carregar
+        verificarStatus();
+    </script>
+</body>
+</html>

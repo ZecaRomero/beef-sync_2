@@ -1,0 +1,764 @@
+import React, { useState } from 'react'
+import * as XLSX from 'xlsx'
+import {
+  DocumentArrowUpIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  XMarkIcon,
+  SparklesIcon
+} from '@heroicons/react/24/outline'
+import Modal from './ui/Modal'
+import Button from './ui/Button'
+
+export default function UniversalExcelImporter({ isOpen, onClose, onImportSuccess }) {
+  const [file, setFile] = useState(null)
+  const [detectedType, setDetectedType] = useState(null)
+  const [preview, setPreview] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
+  const [importMethod, setImportMethod] = useState('file') // 'file' ou 'paste'
+  const [pastedText, setPastedText] = useState('')
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0]
+    if (!selectedFile) return
+
+    const fileExtension = selectedFile.name.split('.').pop().toLowerCase()
+    if (!['xlsx', 'xls', 'csv'].includes(fileExtension)) {
+      setError('Por favor, selecione um arquivo Excel (.xlsx, .xls) ou CSV')
+      return
+    }
+
+    setFile(selectedFile)
+    setError(null)
+    setSuccess(null)
+    detectAndParseFile(selectedFile)
+  }
+
+  const detectAndParseFile = async (file) => {
+    try {
+      setLoading(true)
+      const reader = new FileReader()
+      
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' })
+
+          if (jsonData.length === 0) {
+            setError('Arquivo vazio ou sem dados')
+            return
+          }
+
+          // Detectar tipo de dados
+          const type = detectDataType(jsonData[0], workbook.SheetNames[0])
+          setDetectedType(type)
+
+          // Processar preview
+          const processed = processDataByType(jsonData, type)
+          setPreview({
+            type,
+            total: jsonData.length,
+            sample: processed.slice(0, 5),
+            all: processed
+          })
+        } catch (err) {
+          setError(`Erro ao processar arquivo: ${err.message}`)
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      reader.readAsArrayBuffer(file)
+    } catch (err) {
+      setError(`Erro ao ler arquivo: ${err.message}`)
+      setLoading(false)
+    }
+  }
+
+  const detectDataType = (firstRow, sheetName) => {
+    const keys = Object.keys(firstRow).map(k => k.toLowerCase())
+    const sheetLower = sheetName.toLowerCase()
+
+    // Detectar por colunas específicas
+    if (keys.some(k => k.includes('data_ia') || k.includes('dataia') || k.includes('data ia'))) {
+      return 'inseminacao'
+    }
+    if (keys.some(k => k.includes('data_fiv') || k.includes('datafiv') || k.includes('data fiv'))) {
+      return 'fiv'
+    }
+    if (keys.some(k => k.includes('data_nascimento') || k.includes('datanascimento') || k.includes('data nascimento'))) {
+      if (keys.some(k => k.includes('serie') && k.includes('rg'))) {
+        return 'nascimentos'
+      }
+    }
+    if (keys.some(k => k.includes('data_dg') || k.includes('datadg') || k.includes('data dg'))) {
+      return 'diagnostico_gestacao'
+    }
+    if (keys.some(k => k.includes('numero_nf') || k.includes('numeronf') || k.includes('numero nf') || k.includes('nf'))) {
+      return 'notas_fiscais'
+    }
+    if (keys.some(k => k.includes('serie') && k.includes('rg'))) {
+      return 'animais'
+    }
+    if (sheetLower.includes('ia') || sheetLower.includes('inseminação') || sheetLower.includes('inseminacao')) {
+      return 'inseminacao'
+    }
+    if (sheetLower.includes('fiv')) {
+      return 'fiv'
+    }
+    if (sheetLower.includes('nascimento')) {
+      return 'nascimentos'
+    }
+    if (sheetLower.includes('nota') || sheetLower.includes('nf')) {
+      return 'notas_fiscais'
+    }
+
+    return 'animais' // Padrão
+  }
+
+  const processDataByType = (data, type) => {
+    switch (type) {
+      case 'inseminacao':
+        return processInseminacaoData(data)
+      case 'fiv':
+        return processFIVData(data)
+      case 'nascimentos':
+        return processNascimentosData(data)
+      case 'diagnostico_gestacao':
+        return processDGData(data)
+      case 'notas_fiscais':
+        return processNotasFiscaisData(data)
+      default:
+        return processAnimaisData(data)
+    }
+  }
+
+  const processInseminacaoData = (data) => {
+    return data.map((row, idx) => {
+      const getVal = (keys) => {
+        for (const key of keys) {
+          const val = row[key] || row[key.toLowerCase()] || row[key.toUpperCase()]
+          if (val !== undefined && val !== null && val !== '') return val
+        }
+        return null
+      }
+
+      return {
+        id: idx + 1,
+        serie: getVal(['Serie', 'Série', 'serie', 'SERIE', 'Serie Animal', 'Série Animal']),
+        rg: getVal(['RG', 'rg', 'Rg', 'RG Animal', 'Rg Animal']),
+        touro1: getVal(['Touro1', 'Touro 1', 'touro1', 'Touro', 'touro', 'TOURO']),
+        serie_touro1: getVal(['Serie Touro1', 'Série Touro1', 'serie_touro1', 'SerieTouro1']),
+        rg_touro1: getVal(['RG Touro1', 'Rg Touro1', 'rg_touro1', 'RGTouro1']),
+        data_ia1: getVal(['Data IA1', 'DataIA1', 'data_ia1', 'Data IA', 'data_ia', 'DataIA']),
+        data_dg1: getVal(['Data DG1', 'DataDG1', 'data_dg1', 'Data DG', 'data_dg', 'DataDG']),
+        resultado1: getVal(['Resultado1', 'Resultado 1', 'resultado1', 'Resultado', 'resultado', 'RESULTADO']),
+        touro2: getVal(['Touro2', 'Touro 2', 'touro2']),
+        serie_touro2: getVal(['Serie Touro2', 'Série Touro2', 'serie_touro2']),
+        rg_touro2: getVal(['RG Touro2', 'Rg Touro2', 'rg_touro2']),
+        data_ia2: getVal(['Data IA2', 'DataIA2', 'data_ia2']),
+        data_dg2: getVal(['Data DG2', 'DataDG2', 'data_dg2']),
+        resultado2: getVal(['Resultado2', 'Resultado 2', 'resultado2']),
+        touro3: getVal(['Touro3', 'Touro 3', 'touro3']),
+        serie_touro3: getVal(['Serie Touro3', 'Série Touro3', 'serie_touro3']),
+        rg_touro3: getVal(['RG Touro3', 'Rg Touro3', 'rg_touro3']),
+        data_ia3: getVal(['Data IA3', 'DataIA3', 'data_ia3']),
+        data_dg3: getVal(['Data DG3', 'DataDG3', 'data_dg3']),
+        resultado3: getVal(['Resultado3', 'Resultado 3', 'resultado3']),
+        observacoes: getVal(['Observações', 'Observacoes', 'observações', 'observacoes', 'Obs', 'obs'])
+      }
+    })
+  }
+
+  const processFIVData = (data) => {
+    return data.map((row, idx) => {
+      const getVal = (keys) => {
+        for (const key of keys) {
+          const val = row[key] || row[key.toLowerCase()] || row[key.toUpperCase()]
+          if (val !== undefined && val !== null && val !== '') return val
+        }
+        return null
+      }
+
+      return {
+        id: idx + 1,
+        doadora_serie: getVal(['Serie Doadora', 'Série Doadora', 'serie_doadora', 'Serie', 'Série']),
+        doadora_rg: getVal(['RG Doadora', 'Rg Doadora', 'rg_doadora', 'RG', 'rg']),
+        doadora_nome: getVal(['Nome Doadora', 'nome_doadora', 'Doadora', 'doadora']),
+        laboratorio: getVal(['Laboratório', 'Laboratorio', 'laboratório', 'laboratorio', 'Lab', 'lab']),
+        veterinario: getVal(['Veterinário', 'Veterinario', 'veterinário', 'veterinario', 'Vet', 'vet']),
+        data_fiv: getVal(['Data FIV', 'DataFIV', 'data_fiv', 'Data', 'data']),
+        quantidade_oocitos: getVal(['Quantidade Oócitos', 'Quantidade Oocitos', 'quantidade_oocitos', 'Oócitos', 'Oocitos']),
+        touro: getVal(['Touro', 'touro', 'TOURO']),
+        observacoes: getVal(['Observações', 'Observacoes', 'observações', 'observacoes'])
+      }
+    })
+  }
+
+  const processNascimentosData = (data) => {
+    return data.map((row, idx) => {
+      const getVal = (keys) => {
+        for (const key of keys) {
+          const val = row[key] || row[key.toLowerCase()] || row[key.toUpperCase()]
+          if (val !== undefined && val !== null && val !== '') return val
+        }
+        return null
+      }
+
+      return {
+        id: idx + 1,
+        serie: getVal(['Serie', 'Série', 'serie', 'SERIE']),
+        rg: getVal(['RG', 'rg', 'Rg', 'RG']),
+        nome: getVal(['Nome', 'nome', 'NOME']),
+        sexo: getVal(['Sexo', 'sexo', 'SEXO']),
+        raca: getVal(['Raça', 'Raca', 'raca', 'Raça', 'RACA']),
+        data_nascimento: getVal(['Data Nascimento', 'DataNascimento', 'data_nascimento', 'Data', 'data']),
+        hora_nascimento: getVal(['Hora Nascimento', 'HoraNascimento', 'hora_nascimento', 'Hora', 'hora']),
+        peso: getVal(['Peso', 'peso', 'PESO']),
+        tipo_nascimento: getVal(['Tipo Nascimento', 'TipoNascimento', 'tipo_nascimento', 'Tipo', 'tipo']),
+        pai: getVal(['Pai', 'pai', 'PAI']),
+        mae: getVal(['Mãe', 'Mae', 'mae', 'MAE']),
+        receptora: getVal(['Receptora', 'receptora', 'RECEPTORA']),
+        avo_materno: getVal(['Avô Materno', 'Avo Materno', 'avo_materno', 'Avô', 'Avo']),
+        is_fiv: getVal(['FIV', 'fiv', 'Is FIV', 'is_fiv']),
+        observacoes: getVal(['Observações', 'Observacoes', 'observações', 'observacoes'])
+      }
+    })
+  }
+
+  const processDGData = (data) => {
+    return data.map((row, idx) => {
+      const getVal = (keys) => {
+        for (const key of keys) {
+          const val = row[key] || row[key.toLowerCase()] || row[key.toUpperCase()]
+          if (val !== undefined && val !== null && val !== '') return val
+        }
+        return null
+      }
+
+      return {
+        id: idx + 1,
+        serie: getVal(['Serie', 'Série', 'serie']),
+        rg: getVal(['RG', 'rg', 'Rg']),
+        data_dg: getVal(['Data DG', 'DataDG', 'data_dg', 'Data', 'data']),
+        resultado: getVal(['Resultado', 'resultado', 'RESULTADO', 'Status', 'status']),
+        observacoes: getVal(['Observações', 'Observacoes', 'observações'])
+      }
+    })
+  }
+
+  const processNotasFiscaisData = (data) => {
+    return data.map((row, idx) => {
+      const getVal = (keys) => {
+        for (const key of keys) {
+          const val = row[key] || row[key.toLowerCase()] || row[key.toUpperCase()]
+          if (val !== undefined && val !== null && val !== '') return val
+        }
+        return null
+      }
+
+      return {
+        id: idx + 1,
+        numero_nf: getVal(['Número NF', 'Numero NF', 'numero_nf', 'NF', 'nf']),
+        tipo: getVal(['Tipo', 'tipo', 'TIPO']),
+        data: getVal(['Data', 'data', 'DATA']),
+        origem: getVal(['Origem', 'origem', 'ORIGEM']),
+        destino: getVal(['Destino', 'destino', 'DESTINO']),
+        valor_total: getVal(['Valor Total', 'ValorTotal', 'valor_total', 'Valor', 'valor'])
+      }
+    })
+  }
+
+  const processPastedText = (text) => {
+    if (!text || !text.trim()) {
+      setError('Cole os dados do Excel no campo de texto')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Processar dados colados como CSV (separado por tab ou vírgula)
+      const lines = text.split(/\r?\n/).filter(line => line.trim())
+      if (lines.length < 2) {
+        setError('Dados devem ter pelo menos 2 linhas (cabeçalho + dados)')
+        setLoading(false)
+        return
+      }
+
+      // Detectar separador: tab (quando copiado do Excel) ou vírgula
+      const firstLine = lines[0]
+      const hasTab = firstLine.includes('\t')
+      const separator = hasTab ? '\t' : ','
+
+      const headers = firstLine.split(separator).map(h => String(h || '').trim())
+      console.log('📋 Cabeçalhos encontrados (colado):', headers)
+
+      // Converter para formato de objeto (como se fosse JSON do Excel)
+      const jsonData = []
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(separator)
+        const row = {}
+        headers.forEach((header, idx) => {
+          row[header] = values[idx] ? String(values[idx]).trim() : ''
+        })
+        jsonData.push(row)
+      }
+
+      console.log('📊 Total de linhas processadas:', jsonData.length)
+      console.log('🔍 Primeira linha:', jsonData[0])
+
+      // Detectar tipo de dados
+      const type = detectDataType(jsonData[0] || {}, '')
+      setDetectedType(type)
+
+      // Processar preview
+      const processed = processDataByType(jsonData, type)
+      setPreview({
+        type,
+        total: jsonData.length,
+        sample: processed.slice(0, 5),
+        all: processed
+      })
+
+      setLoading(false)
+    } catch (err) {
+      console.error('Erro ao processar texto colado:', err)
+      setError(`Erro ao processar dados colados: ${err.message}`)
+      setLoading(false)
+    }
+  }
+
+  const processAnimaisData = (data) => {
+    if (!data || data.length === 0) return []
+    
+    // Obter todas as chaves disponíveis no primeiro registro para debug
+    const availableKeys = Object.keys(data[0] || {})
+    console.log('📋 Colunas encontradas:', availableKeys)
+    
+    return data.map((row, idx) => {
+      const getVal = (keys) => {
+        for (const key of keys) {
+          // Tentar diferentes variações do nome da coluna
+          let val = row[key]
+          if (val === undefined || val === null) {
+            val = row[key.toLowerCase()]
+          }
+          if (val === undefined || val === null) {
+            val = row[key.toUpperCase()]
+          }
+          if (val === undefined || val === null) {
+            // Tentar com espaços removidos
+            const keyNoSpaces = key.replace(/\s+/g, '')
+            val = row[keyNoSpaces] || row[keyNoSpaces.toLowerCase()] || row[keyNoSpaces.toUpperCase()]
+          }
+          if (val === undefined || val === null) {
+            // Tentar buscar por substring (ex: "serie" em "SERIE_ANIMAL")
+            const foundKey = availableKeys.find(k => 
+              k.toLowerCase().includes(key.toLowerCase()) || 
+              key.toLowerCase().includes(k.toLowerCase())
+            )
+            if (foundKey) {
+              val = row[foundKey]
+            }
+          }
+          if (val !== undefined && val !== null && val !== '') {
+            // Converter para string e limpar espaços
+            return String(val).trim()
+          }
+        }
+        return null
+      }
+
+      const processed = {
+        id: idx + 1,
+        serie: getVal(['Serie', 'Série', 'serie', 'SERIE', 'Serie Animal', 'Série Animal', 'SERIE_ANIMAL', 'SériePai', 'SérieMãe', 'SérieMae']),
+        rg: getVal(['RG', 'rg', 'Rg', 'R.G.', 'R. G.', 'RG_ANIMAL', 'RGN', 'rgn', 'RgnPai', 'RgnMãe', 'RgnMae']),
+        nome: getVal(['Nome', 'nome', 'NOME', 'Nome Animal', 'NOME_ANIMAL', 'Nome do Animal']),
+        sexo: getVal(['Sexo', 'sexo', 'SEXO', 'Sexo Animal', 'SEXO_ANIMAL', 'Sx', 'sx', 'SX']),
+        raca: getVal(['Raça', 'Raca', 'raca', 'RACA', 'Raça Animal', 'RACA_ANIMAL']),
+        data_nascimento: getVal(['Data Nascimento', 'DataNascimento', 'data_nascimento', 'DATA_NASCIMENTO', 'Data de Nascimento', 'Data de nascimento', 'Nascimento', 'nascimento']),
+        meses: getVal(['Meses', 'meses', 'MESES']),
+        peso: getVal(['Peso', 'peso', 'PESO', 'Peso Animal', 'PESO_ANIMAL']),
+        pai: getVal(['Pai', 'pai', 'PAI', 'Pai Animal', 'PAI_ANIMAL', 'Nome do Pai', 'NomePai']),
+        serie_pai: getVal(['SériePai', 'SeriePai', 'serie_pai', 'SERIE_PAI', 'Série Pai']),
+        rg_pai: getVal(['RgnPai', 'Rgn Pai', 'rg_pai', 'RG_PAI', 'RGN Pai']),
+        mae: getVal(['Mãe', 'Mae', 'mae', 'MAE', 'Mãe Animal', 'MAE_ANIMAL', 'Nome da Mãe', 'NomeMãe', 'NomeMae']),
+        serie_mae: getVal(['SérieMãe', 'SerieMãe', 'SerieMae', 'serie_mae', 'SERIE_MAE', 'Série Mãe']),
+        rg_mae: getVal(['RgnMãe', 'RgnMae', 'Rgn Mãe', 'rg_mae', 'RG_MAE', 'RGN Mãe']),
+        receptora: getVal(['Receptora', 'receptora', 'RECEPTORA']),
+        avo_materno: getVal(['Avô Materno', 'Avo Materno', 'avo_materno', 'AVO_MATERNO', 'AvôMaterno', 'AvoMaterno']),
+        iabcz: getVal(['iABCZ', 'IABCZ', 'iabcz', 'iABZ', 'IABZ']),
+        deca: getVal(['DECA', 'deca', 'Deca'])
+      }
+      
+      // Log do primeiro registro para debug
+      if (idx === 0) {
+        console.log('🔍 Primeiro registro processado:', processed)
+        console.log('📊 Valores originais:', row)
+      }
+      
+      return processed
+    })
+  }
+
+  const handleImport = async () => {
+    if (!preview || !preview.all || preview.all.length === 0) {
+      setError('Nenhum dado para importar')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      let response
+      switch (preview.type) {
+        case 'inseminacao':
+          response = await fetch('/api/reproducao/inseminacao/import-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: preview.all })
+          })
+          break
+        case 'fiv':
+          response = await fetch('/api/reproducao/coleta-fiv/import-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: preview.all })
+          })
+          break
+        case 'nascimentos':
+          // Usar API de animais com flag de nascimento
+          response = await fetch('/api/animals/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ animais: preview.all })
+          })
+          break
+        case 'diagnostico_gestacao':
+          response = await fetch('/api/reproducao/diagnostico-gestacao/import-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: preview.all })
+          })
+          break
+        case 'notas_fiscais':
+          response = await fetch('/api/notas-fiscais/import-excel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: preview.all })
+          })
+          break
+        default:
+          response = await fetch('/api/animals/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ animais: preview.all })
+          })
+      }
+
+      const result = await response.json()
+
+      if (response.ok && result.success) {
+        setSuccess({
+          message: `✅ ${preview.total} registros importados com sucesso!`,
+          details: result.data || {}
+        })
+        
+        if (onImportSuccess) {
+          onImportSuccess(preview.type, preview.total)
+        }
+
+        // Limpar após 3 segundos
+        setTimeout(() => {
+          handleClose()
+        }, 3000)
+      } else {
+        setError(result.message || 'Erro ao importar dados')
+      }
+    } catch (err) {
+      setError(`Erro ao importar: ${err.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleClose = () => {
+    setFile(null)
+    setDetectedType(null)
+    setPreview(null)
+    setError(null)
+    setSuccess(null)
+    onClose()
+  }
+
+  const getTypeLabel = (type) => {
+    const labels = {
+      inseminacao: 'Inseminação Artificial (IA)',
+      fiv: 'Fertilização In Vitro (FIV)',
+      nascimentos: 'Nascimentos',
+      diagnostico_gestacao: 'Diagnóstico de Gestação (DG)',
+      notas_fiscais: 'Notas Fiscais',
+      animais: 'Animais'
+    }
+    return labels[type] || 'Dados'
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose} title="Importação Universal de Excel" size="xl">
+      <div className="space-y-4">
+        {/* Método de Importação */}
+        <div className="flex gap-4 mb-4">
+          <button
+            type="button"
+            onClick={() => {
+              setImportMethod('file')
+              setPastedText('')
+              setPreview(null)
+              setError(null)
+            }}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              importMethod === 'file'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            📁 Upload de Arquivo
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setImportMethod('paste')
+              setFile(null)
+              setPreview(null)
+              setError(null)
+            }}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              importMethod === 'paste'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            📋 Copiar e Colar
+          </button>
+        </div>
+
+        {/* Upload de Arquivo */}
+        {importMethod === 'file' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Selecione o arquivo Excel
+            </label>
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
+            />
+          </div>
+        )}
+
+        {/* Copiar e Colar */}
+        {importMethod === 'paste' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              📋 Cole os dados do Excel aqui (Ctrl+C → Ctrl+V)
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              💡 Dica: Selecione os dados no Excel (incluindo o cabeçalho) e pressione Ctrl+C, depois cole aqui com Ctrl+V
+            </p>
+            <textarea
+              value={pastedText}
+              onChange={(e) => {
+                const newText = e.target.value
+                setPastedText(newText)
+                // Processar automaticamente quando houver dados suficientes
+                if (newText.trim().split('\n').length >= 2) {
+                  setTimeout(() => {
+                    processPastedText(newText)
+                  }, 300)
+                }
+              }}
+              placeholder="Cole aqui os dados do Excel (incluindo cabeçalho)..."
+              rows={10}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+            />
+            {pastedText && (
+              <button
+                type="button"
+                onClick={() => processPastedText(pastedText)}
+                className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                disabled={loading}
+              >
+                {loading ? 'Processando...' : 'Processar Dados Colados'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-3 text-gray-600 dark:text-gray-400">Processando arquivo...</span>
+          </div>
+        )}
+
+        {/* Detected Type */}
+        {detectedType && !loading && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <SparklesIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <span className="font-semibold text-blue-900 dark:text-blue-100">
+                Tipo detectado: {getTypeLabel(detectedType)}
+              </span>
+            </div>
+            <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              {preview?.total || 0} registros encontrados
+            </p>
+          </div>
+        )}
+
+        {/* Preview */}
+        {preview && !loading && (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              Preview (mostrando 5 primeiros registros)
+            </h3>
+            
+            {/* Aviso sobre campos vazios */}
+            {preview.sample && preview.sample.length > 0 && (() => {
+              const firstRow = preview.sample[0]
+              const camposVazios = []
+              const camposObrigatorios = ['serie', 'rg']
+              const camposImportantes = ['sexo', 'raca', 'nome']
+              
+              camposObrigatorios.forEach(campo => {
+                if (!firstRow[campo] || firstRow[campo] === null) {
+                  camposVazios.push({ campo, tipo: 'obrigatório' })
+                }
+              })
+              
+              camposImportantes.forEach(campo => {
+                if (!firstRow[campo] || firstRow[campo] === null) {
+                  camposVazios.push({ campo, tipo: 'importante' })
+                }
+              })
+              
+              if (camposVazios.length > 0) {
+                const obrigatorios = camposVazios.filter(c => c.tipo === 'obrigatório')
+                const importantes = camposVazios.filter(c => c.tipo === 'importante')
+                
+                return (
+                  <div className="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-semibold text-yellow-800 dark:text-yellow-200 mb-1">
+                          ⚠️ Atenção: Campos vazios detectados
+                        </p>
+                        {obrigatorios.length > 0 && (
+                          <p className="text-yellow-700 dark:text-yellow-300 mb-1">
+                            <strong>Campos obrigatórios vazios:</strong> {obrigatorios.map(c => c.campo.toUpperCase()).join(', ')}
+                            <br />
+                            <span className="text-xs">Estes campos são obrigatórios e a importação pode falhar sem eles.</span>
+                          </p>
+                        )}
+                        {importantes.length > 0 && (
+                          <p className="text-yellow-700 dark:text-yellow-300">
+                            <strong>Campos importantes vazios:</strong> {importantes.map(c => c.campo.toUpperCase()).join(', ')}
+                            <br />
+                            <span className="text-xs">Estes campos serão importados como vazios se não estiverem no Excel.</span>
+                          </p>
+                        )}
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                          💡 Dica: Verifique se os nomes das colunas no Excel correspondem aos esperados (Serie, RG, Nome, Sexo, Raça, etc.)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            })()}
+            
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    {Object.keys(preview.sample[0] || {}).map((key) => (
+                      <th
+                        key={key}
+                        className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                      >
+                        {key}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                  {preview.sample.map((row, idx) => (
+                    <tr key={idx}>
+                      {Object.values(row).map((val, vIdx) => (
+                        <td
+                          key={vIdx}
+                          className={`px-3 py-2 text-xs whitespace-nowrap ${
+                            val === null || val === '' || val === undefined
+                              ? 'text-gray-400 dark:text-gray-600 italic'
+                              : 'text-gray-900 dark:text-gray-100'
+                          }`}
+                        >
+                          {val === null || val === '' || val === undefined ? '-' : String(val)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
+              <span className="text-red-800 dark:text-red-200">{error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Success */}
+        {success && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircleIcon className="h-5 w-5 text-green-600" />
+              <span className="text-green-800 dark:text-green-200">{success.message}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-4">
+          <Button variant="secondary" onClick={handleClose}>
+            Cancelar
+          </Button>
+          {preview && !loading && (
+            <Button onClick={handleImport} disabled={loading}>
+              {loading ? 'Importando...' : `Importar ${preview.total} registros`}
+            </Button>
+          )}
+        </div>
+      </div>
+    </Modal>
+  )
+}

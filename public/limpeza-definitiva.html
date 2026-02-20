@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIMPEZA DEFINITIVA - Notas Fiscais</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .critical {
+            background-color: rgba(220, 53, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 3px solid #dc3545;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        button {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+            padding: 20px 40px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 18px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+        .success {
+            background-color: rgba(40, 167, 69, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        pre {
+            background-color: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        h1, h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .steps {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+        .code-block {
+            background: rgba(0,0,0,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            margin: 10px 0;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 LIMPEZA DEFINITIVA - PROBLEMA F5</h1>
+        
+        <div class="critical">
+            <h2>⚠️ PROBLEMA CRÍTICO IDENTIFICADO!</h2>
+            <p><strong>Ao pressionar F5 (atualizar página), as notas antigas voltam!</strong></p>
+            <p>Isso acontece porque o código tem múltiplos fallbacks para localStorage.</p>
+        </div>
+
+        <div class="steps">
+            <h3>🔧 SOLUÇÃO DEFINITIVA:</h3>
+            <div class="step">
+                <strong>1. Limpeza Completa:</strong> Remove TODOS os dados do navegador
+            </div>
+            <div class="step">
+                <strong>2. Executar Script:</strong> Força limpeza no servidor
+            </div>
+            <div class="step">
+                <strong>3. Recarregamento:</strong> Força o app a usar apenas PostgreSQL
+            </div>
+        </div>
+
+        <h2>🚀 EXECUTAR LIMPEZA DEFINITIVA:</h2>
+        <button onclick="executarLimpezaDefinitiva()">
+            🧹 LIMPEZA DEFINITIVA + RECARREGAR
+        </button>
+
+        <div class="steps">
+            <h3>📋 OU EXECUTE MANUALMENTE:</h3>
+            <div class="code-block">
+                // 1. Abra o DevTools (F12)<br>
+                // 2. Vá para Console<br>
+                // 3. Execute este código:<br><br>
+                localStorage.clear();<br>
+                sessionStorage.clear();<br>
+                indexedDB.deleteDatabase('notasFiscais');<br>
+                location.reload(true);
+            </div>
+        </div>
+
+        <div id="status"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function executarLimpezaDefinitiva() {
+            if (confirm('🚨 CONFIRMAR LIMPEZA DEFINITIVA?\n\nIsso irá:\n- Limpar TODOS os dados do navegador\n- Remover cache e IndexedDB\n- Forçar recarregamento completo\n- Garantir que apenas PostgreSQL seja usado')) {
+                
+                // Limpeza COMPLETA
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Limpar IndexedDB se existir
+                if ('indexedDB' in window) {
+                    try {
+                        indexedDB.deleteDatabase('notasFiscais');
+                        indexedDB.deleteDatabase('beef-sync');
+                    } catch (e) {
+                        console.log('IndexedDB não encontrado');
+                    }
+                }
+                
+                // Limpar cookies relacionados
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                // Limpar cache do service worker se existir
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        for(let registration of registrations) {
+                            registration.unregister();
+                        }
+                    });
+                }
+                
+                document.getElementById('result').innerHTML = 
+                    '<div class="success"><h3>✅ LIMPEZA DEFINITIVA EXECUTADA!</h3><p>Todos os dados foram removidos. Redirecionando para o app...</p></div>';
+                
+                // Aguardar e redirecionar com cache-busting
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:3020/notas-fiscais?v=' + Date.now();
+                }, 2000);
+            }
+        }
+
+        // Verificar status atual
+        function verificarStatus() {
+            const notasFiscais = localStorage.getItem('notasFiscais');
+            const sessionData = sessionStorage.getItem('notasFiscais');
+            const nfParaEdicao = localStorage.getItem('nfParaEdicao');
+            
+            let statusHtml = '<pre>';
+            statusHtml += '📊 STATUS ATUAL DO NAVEGADOR:\n';
+            statusHtml += `localStorage.notasFiscais: ${notasFiscais ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `localStorage.nfParaEdicao: ${nfParaEdicao ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `sessionStorage.notasFiscais: ${sessionData ? 'DADOS ENCONTRADOS ❌' : 'LIMPO ✅'}\n`;
+            statusHtml += `Cookies: ${document.cookie.length > 0 ? 'PRESENTES ❌' : 'LIMPOS ✅'}\n`;
+            statusHtml += '</pre>';
+            
+            if (notasFiscais || sessionData || nfParaEdicao || document.cookie.length > 0) {
+                statusHtml += '<div class="critical"><strong>⚠️ DADOS ANTIGOS DETECTADOS!</strong><br>Execute a limpeza definitiva.</div>';
+            } else {
+                statusHtml += '<div class="success"><strong>✅ NAVEGADOR LIMPO!</strong><br>Dados corretos devem aparecer.</div>';
+            }
+            
+            document.getElementById('status').innerHTML = statusHtml;
+        }
+
+        // Verificar status ao carregar
+        verificarStatus();
+    </script>
+</body>
+</html>

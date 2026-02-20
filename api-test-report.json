@@ -1,0 +1,353 @@
+{
+  "timestamp": "2025-10-29T15:04:55.242Z",
+  "stats": {
+    "total": 13,
+    "working": 13,
+    "errors": 0,
+    "critical": 0
+  },
+  "results": [
+    {
+      "name": "Health Check",
+      "path": "/api/healthz",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 14,
+      "timestamp": "2025-10-29T15:04:54.580Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "status",
+          "message",
+          "data",
+          "timestamp"
+        ],
+        "hasSuccess": false,
+        "hasData": true,
+        "hasMessage": true
+      },
+      "critical": true
+    },
+    {
+      "name": "Database Test",
+      "path": "/api/database/test",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 18,
+      "timestamp": "2025-10-29T15:04:54.600Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "status",
+          "message",
+          "connected",
+          "timestamp",
+          "version",
+          "poolInfo",
+          "config"
+        ],
+        "hasSuccess": false,
+        "hasData": false,
+        "hasMessage": true
+      },
+      "critical": true
+    },
+    {
+      "name": "System Health",
+      "path": "/api/system/health",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 18,
+      "timestamp": "2025-10-29T15:04:54.619Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "status",
+          "timestamp",
+          "responseTime",
+          "uptime",
+          "memory",
+          "database",
+          "environment",
+          "nodeVersion",
+          "platform",
+          "arch"
+        ],
+        "hasSuccess": false,
+        "hasData": false,
+        "hasMessage": false
+      },
+      "critical": true
+    },
+    {
+      "name": "Animals API",
+      "path": "/api/animals",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 45,
+      "timestamp": "2025-10-29T15:04:54.665Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "success",
+          "message",
+          "timestamp",
+          "data"
+        ],
+        "hasSuccess": true,
+        "hasData": true,
+        "hasMessage": true
+      },
+      "critical": true
+    },
+    {
+      "name": "Semen API",
+      "path": "/api/semen",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 55,
+      "timestamp": "2025-10-29T15:04:54.723Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "success",
+          "message",
+          "timestamp",
+          "data"
+        ],
+        "hasSuccess": true,
+        "hasData": true,
+        "hasMessage": true
+      },
+      "critical": true
+    },
+    {
+      "name": "Births API",
+      "path": "/api/births",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 18,
+      "timestamp": "2025-10-29T15:04:54.750Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "success",
+          "message",
+          "timestamp",
+          "data",
+          "meta"
+        ],
+        "hasSuccess": true,
+        "hasData": true,
+        "hasMessage": true
+      },
+      "critical": false
+    },
+    {
+      "name": "Deaths API",
+      "path": "/api/deaths",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 22,
+      "timestamp": "2025-10-29T15:04:54.772Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "status",
+          "data",
+          "count",
+          "timestamp"
+        ],
+        "hasSuccess": false,
+        "hasData": true,
+        "hasMessage": false
+      },
+      "critical": false
+    },
+    {
+      "name": "Locations API",
+      "path": "/api/localizacoes",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 23,
+      "timestamp": "2025-10-29T15:04:54.797Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "success",
+          "data",
+          "total"
+        ],
+        "hasSuccess": true,
+        "hasData": true,
+        "hasMessage": false
+      },
+      "critical": false
+    },
+    {
+      "name": "Costs API",
+      "path": "/api/custos",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 18,
+      "timestamp": "2025-10-29T15:04:54.816Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "success",
+          "message",
+          "timestamp",
+          "data",
+          "meta"
+        ],
+        "hasSuccess": true,
+        "hasData": true,
+        "hasMessage": true
+      },
+      "critical": false
+    },
+    {
+      "name": "Notifications API",
+      "path": "/api/notifications",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 18,
+      "timestamp": "2025-10-29T15:04:54.836Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "array",
+        "length": 1,
+        "sample": [
+          "id",
+          "tipo",
+          "titulo",
+          "mensagem",
+          "prioridade",
+          "dados_extras",
+          "animal_id",
+          "lida",
+          "created_at",
+          "updated_at",
+          "icon",
+          "color_class",
+          "tempo_relativo",
+          "timestamp"
+        ]
+      },
+      "critical": false
+    },
+    {
+      "name": "Reports Templates",
+      "path": "/api/reports/templates",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 14,
+      "timestamp": "2025-10-29T15:04:54.851Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "success",
+          "message",
+          "timestamp",
+          "data"
+        ],
+        "hasSuccess": true,
+        "hasData": true,
+        "hasMessage": true
+      },
+      "critical": false
+    },
+    {
+      "name": "Dashboard Stats",
+      "path": "/api/dashboard/stats",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 94,
+      "timestamp": "2025-10-29T15:04:54.946Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "totalAnimals",
+          "activeAnimals",
+          "totalBirths",
+          "birthsThisMonth",
+          "totalSemen",
+          "availableDoses",
+          "totalCosts",
+          "alerts",
+          "lastUpdated"
+        ],
+        "hasSuccess": false,
+        "hasData": false,
+        "hasMessage": false
+      },
+      "critical": false
+    },
+    {
+      "name": "System Check",
+      "path": "/api/system-check",
+      "method": "GET",
+      "status": "working",
+      "statusCode": 200,
+      "responseTime": 290,
+      "timestamp": "2025-10-29T15:04:55.238Z",
+      "error": null,
+      "hasData": true,
+      "dataStructure": {
+        "type": "object",
+        "keys": [
+          "timestamp",
+          "database",
+          "tables",
+          "apis",
+          "data"
+        ],
+        "hasSuccess": false,
+        "hasData": true,
+        "hasMessage": false
+      },
+      "critical": false
+    }
+  ],
+  "summary": {
+    "successRate": 100,
+    "avgResponseTime": 50,
+    "criticalIssues": false,
+    "hasErrors": false
+  }
+}
