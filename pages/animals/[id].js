@@ -1728,11 +1728,12 @@ export default function AnimalDetail() {
     }
   }
 
-  // VERSÃO MOBILE SIMPLIFICADA
+  // VERSÃO MOBILE SIMPLIFICADA - APENAS CONSULTA
   if (isMobile && animal) {
-    const totalCustos = (custos || []).reduce((s, c) => s + parseFloat(c.valor || 0), 0)
+    const totalCustos = (animal.custos || custos || []).reduce((s, c) => s + parseFloat(c.valor || 0), 0)
     const currentIdx = allAnimals.findIndex(a => a.id === animal.id)
     const isDoadora = animal.fivs && animal.fivs.length > 0
+    const isMacho = animal.sexo?.toLowerCase().includes('macho')
     
     // Calcular stats de doadora
     let statsDoadora = null
@@ -1833,43 +1834,7 @@ export default function AnimalDetail() {
             )}
           </div>
 
-          {/* Botões de Ação - Apenas 3 botões */}
-          <div className="grid grid-cols-2 gap-2 p-3">
-            <button
-              onClick={() => setShowQuickOccurrence(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg"
-            >
-              <PlusCircleIcon className="h-7 w-7" />
-              <span className="text-sm">Lançar Ocorrência</span>
-            </button>
-
-            <button
-              onClick={() => setShowBatchOccurrence(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-lg flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg"
-            >
-              <PlusCircleIcon className="h-7 w-7" />
-              <span className="text-sm">Lançamento em Lote</span>
-            </button>
-
-            <button
-              onClick={async () => {
-                setGeneratingPDF(true)
-                try {
-                  await generateAnimalFichaPDF(animal)
-                  alert('✅ PDF gerado!')
-                } catch (err) {
-                  alert('❌ Erro ao gerar PDF')
-                } finally {
-                  setGeneratingPDF(false)
-                }
-              }}
-              disabled={generatingPDF}
-              className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-4 rounded-lg flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg disabled:opacity-50 col-span-2"
-            >
-              <DocumentArrowDownIcon className="h-7 w-7" />
-              <span className="text-sm">{generatingPDF ? 'Gerando...' : 'Gerar PDF'}</span>
-            </button>
-          </div>
+          {/* Modo Consulta - Sem botões de ação */}
 
           {/* Custos */}
           <div className="px-3 pb-3">
@@ -2264,7 +2229,8 @@ export default function AnimalDetail() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-5">
+      {/* Botões de ação - ocultos no celular (modo consulta) */}
+      <div className="hidden md:flex flex-wrap items-center gap-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-5">
         <div className="flex flex-wrap items-center gap-2">
           <Button 
             variant="primary"
@@ -2396,8 +2362,8 @@ export default function AnimalDetail() {
         </Button>
       </div>
 
-      {/* Speed Dial - Ações Rápidas */}
-      <div className="fixed bottom-6 right-6 z-50">
+      {/* Speed Dial - Ações Rápidas (oculto no celular - modo consulta) */}
+      <div className="hidden md:block fixed bottom-6 right-6 z-50">
         {/* Items */}
         {fabOpen && (
           <div className="flex flex-col items-end gap-3 mb-3 animate-slide-in-left">

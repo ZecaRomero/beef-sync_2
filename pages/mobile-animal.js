@@ -129,7 +129,7 @@ export default function MobileAnimal() {
                   type="text"
                   value={serie}
                   onChange={(e) => setSerie(e.target.value.toUpperCase())}
-                  placeholder="Ex: CJ"
+                  placeholder="Digite a Série ( CJCJ) "
                   className="w-full px-4 py-3 text-lg border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                   autoFocus
                 />
@@ -141,9 +141,10 @@ export default function MobileAnimal() {
                 </label>
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={rg}
                   onChange={(e) => setRg(e.target.value)}
-                  placeholder="Ex: 15543"
+                  placeholder="Digite o RG do animal"
                   className="w-full px-4 py-3 text-lg border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>

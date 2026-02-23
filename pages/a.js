@@ -129,7 +129,7 @@ export default function ConsultaRapida() {
               Consulta Animal
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Digite a Série e o RG do animal
+              Digite os números no celular (Série e RG)
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -148,7 +148,7 @@ export default function ConsultaRapida() {
                       setError('')
                     }}
                     onBlur={() => setTouched(prev => ({ ...prev, serie: true }))}
-                    placeholder="Ex: CJCJ"
+                    placeholder="Série (Ex: CJCJ)"
                     className={getInputClass(isSerieValid, touched.serie)}
                     autoComplete="on"
                     autoCapitalize="characters"
@@ -186,7 +186,7 @@ export default function ConsultaRapida() {
                       setError('')
                     }}
                     onBlur={() => setTouched(prev => ({ ...prev, rg: true }))}
-                    placeholder="Ex: 15563"
+                    placeholder="RG (digite os números no celular)"
                     className={getInputClass(isRgValid, touched.rg)}
                     autoComplete="off"
                     inputMode="numeric"
