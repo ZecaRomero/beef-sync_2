@@ -119,9 +119,9 @@ export default function ConsultaRapida() {
                 type="text"
                 value={serie}
                 onChange={(e) => setSerie(e.target.value)}
-                placeholder="Digite aqui a Série"
+                placeholder="Série(Somente CJCJ)"
                 className={inputCls}
-                autoComplete="off"
+                autoComplete="on"
                 autoCapitalize="characters"
                 inputMode="text"
                 disabled={loading}
