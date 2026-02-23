@@ -121,10 +121,20 @@ export default async function handler(req, res) {
     })
   } catch (error) {
     console.error('Erro ao verificar animal:', error)
+    const msg = error.message || ''
+    const isConnRefused = msg.includes('ECONNREFUSED') || error.code === 'ECONNREFUSED'
+    const isNoDatabase = msg.includes('DATABASE_URL') || msg.includes('127.0.0.1')
+    const isTableMissing = msg.includes('relation') && msg.includes('does not exist')
+    let hint = 'Erro ao verificar animal'
+    if (isConnRefused || isNoDatabase) {
+      hint = 'Configure DATABASE_URL no Vercel (Settings → Environment Variables) e faça Redeploy'
+    } else if (isTableMissing) {
+      hint = 'Execute o script scripts/neon-migracao-minima.sql no Neon Console'
+    }
     res.status(500).json({
       success: false,
-      message: 'Erro ao verificar animal',
-      error: error.message
+      message: hint,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     })
   }
 }

@@ -32,11 +32,7 @@ export default function ConsultaRapida() {
           if (data.success && data.data?.id) {
             router.replace(`/consulta-animal/${data.data.id}`)
           } else {
-            setError(
-              res.status === 500
-                ? 'Serviço temporariamente indisponível. Verifique sua conexão e tente novamente.'
-                : (data.message || 'Animal não encontrado')
-            )
+            setError(data.message || (res.status === 500 ? 'Serviço indisponível.' : 'Animal não encontrado'))
             setLoading(false)
           }
         })
@@ -68,9 +64,7 @@ export default function ConsultaRapida() {
       const data = await res.json()
 
       if (!res.ok || !data.success) {
-        const msg = res.status === 500
-          ? 'Serviço temporariamente indisponível. Verifique sua conexão e tente novamente.'
-          : (data.message || 'Animal não encontrado')
+        const msg = data.message || (res.status === 500 ? 'Serviço indisponível. Tente novamente.' : 'Animal não encontrado')
         throw new Error(msg)
       }
 
