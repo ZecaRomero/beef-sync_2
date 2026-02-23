@@ -457,3 +457,69 @@ body {
     @apply shadow-none border border-gray-300;
   }
 }
+
+/* Mobile Optimizations - Prevent card resizing on navigation */
+@media (max-width: 768px) {
+  /* Prevent layout shifts on mobile */
+  .animal-header-enhanced,
+  .sticky {
+    position: sticky !important;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Ensure cards don't grow/shrink */
+  .bg-white,
+  .dark .bg-gray-800,
+  [class*="rounded-"] {
+    min-height: auto;
+    max-width: 100%;
+  }
+  
+  /* Optimize button sizes for mobile */
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  /* Prevent text from causing layout shifts */
+  h1, h2, h3, p {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+  
+  /* Ensure navigation arrows are easily tappable */
+  button[title*="Primeiro"],
+  button[title*="Anterior"],
+  button[title*="Próximo"],
+  button[title*="Último"] {
+    min-width: 40px;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Compact spacing on mobile */
+  .space-y-6 {
+    gap: 1rem;
+  }
+  
+  /* Reduce padding on containers */
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+/* Prevent zoom on input focus (iOS) */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="date"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

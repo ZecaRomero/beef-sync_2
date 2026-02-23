@@ -34,15 +34,15 @@ const AnimalCard = ({ animal, onEdit, onView, onDelete, onTimeline, selectMode, 
   }
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-md border transition-all duration-300 ${
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border transition-all duration-200 ${
       selectMode && isSelected 
-        ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-lg ring-2 ring-blue-500/50 scale-105' 
-        : 'border-gray-200 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 hover:scale-[1.02]'
+        ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 shadow-md' 
+        : 'border-gray-200 dark:border-gray-700'
     }`}>
-      <div className="p-4">
-        {/* Header Compacto */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-2">
+      <div className="p-3">
+        {/* Header Ultra Compacto */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-2 flex-1 min-w-0">
             {selectMode && (
               <input
                 type="checkbox"
@@ -55,16 +55,16 @@ const AnimalCard = ({ animal, onEdit, onView, onDelete, onTimeline, selectMode, 
                 onClick={(e) => {
                   e.stopPropagation();
                 }}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer flex-shrink-0"
               />
             )}
-            <div className="text-xl">{getAnimalIcon(animal.sexo)}</div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+            <div className="text-lg flex-shrink-0">{getAnimalIcon(animal.sexo)}</div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">
                 {animal.serie} {animal.rg}
               </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                • {animal.raca}
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                {animal.raca}
               </p>
             </div>
           </div>
@@ -154,29 +154,16 @@ const AnimalCard = ({ animal, onEdit, onView, onDelete, onTimeline, selectMode, 
           )}
         </div>
 
-        {/* Informações Essenciais */}
-        <div className="grid grid-cols-2 gap-3 mb-3 text-xs">
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Idade:</span>
-            <span className="ml-1 font-medium text-gray-900 dark:text-white">
-              {animal.meses}m
-            </span>
-          </div>
-          <div>
-            <span className="text-gray-500 dark:text-gray-400">Custo:</span>
-            <span className="ml-1 font-medium text-gray-900 dark:text-white">
-              {formatCurrency(animal.custoTotal || 0)}
-            </span>
-          </div>
+        {/* Informações Essenciais - Inline */}
+        <div className="flex items-center justify-between mb-2 text-xs">
+          <span className="text-gray-500 dark:text-gray-400">
+            {animal.meses}m • {formatCurrency(animal.custoTotal || 0)}
+          </span>
         </div>
 
-        <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-          Cadastrado em: {formatDate(animal.created_at)}
-        </div>
-
-        {/* Ações Compactas */}
+        {/* Ações Ultra Compactas - Apenas Ícones */}
         {!selectMode && (
-          <div className="flex space-x-1 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex gap-1 pt-2 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -188,24 +175,10 @@ const AnimalCard = ({ animal, onEdit, onView, onDelete, onTimeline, selectMode, 
                   alert('Erro ao visualizar animal');
                 }
               }}
-              className="flex-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+              className="flex-1 px-2 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors flex items-center justify-center"
+              title="Ver Detalhes"
             >
-              Ver Detalhes
-            </button>
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                try {
-                  if (onEdit) onEdit(animal);
-                } catch (error) {
-                  console.error('Erro ao editar:', error);
-                  alert('Erro ao editar animal');
-                }
-              }}
-              className="flex-1 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors"
-            >
-              Editar
+              👁️
             </button>
             <button
               onClick={(e) => {
@@ -218,36 +191,35 @@ const AnimalCard = ({ animal, onEdit, onView, onDelete, onTimeline, selectMode, 
                   alert('Erro ao abrir timeline');
                 }
               }}
-              className="px-2 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
-              title="Timeline do Animal"
+              className="flex-1 px-2 py-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors flex items-center justify-center"
+              title="Timeline"
             >
-              <ClockIcon className="h-4 w-4" />
+              ⏱️
             </button>
             <button
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 try {
-                  if (onDelete) onDelete(animal);
+                  if (onEdit) onEdit(animal);
                 } catch (error) {
-                  console.error('Erro ao excluir:', error);
-                  alert('Erro ao excluir animal');
+                  console.error('Erro ao editar:', error);
+                  alert('Erro ao editar animal');
                 }
               }}
-              className="px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              title="Excluir animal"
+              className="flex-1 px-2 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded transition-colors flex items-center justify-center"
+              title="Editar"
             >
-              🗑️
+              ✏️
             </button>
           </div>
         )}
         
-        {/* Modo de Seleção - Clique no card para selecionar */}
+        {/* Modo de Seleção - Compacto */}
         {selectMode && (
           <div 
             className="pt-2 border-t border-gray-200 dark:border-gray-700 cursor-pointer"
             onClick={(e) => {
-              // Não fazer nada se clicar no checkbox
               if (e.target.closest('input[type="checkbox"]')) {
                 return;
               }
@@ -257,7 +229,7 @@ const AnimalCard = ({ animal, onEdit, onView, onDelete, onTimeline, selectMode, 
             }}
           >
             <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-              {isSelected ? '✅ Selecionado' : '☑️ Clique para selecionar'}
+              {isSelected ? '✅' : '☑️'}
             </div>
           </div>
         )}

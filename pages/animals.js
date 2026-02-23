@@ -62,6 +62,14 @@ export default function Animals() {
   const [selectMode, setSelectMode] = useState(false); // Modo de seleção ativo
   const [showBulkSexModal, setShowBulkSexModal] = useState(false); // Modal para alteração de sexo em lote
   const [tooltipVenda, setTooltipVenda] = useState({ animalId: null, info: null, loading: false }); // Tooltip de venda
+  
+  useEffect(() => {
+    const isMobileUA = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isSmallScreen = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+    if (isMobileUA || isSmallScreen) {
+      router.replace('/a');
+    }
+  }, [router]);
 
   // Garantir que filtros sejam limpos ao montar o componente
   useEffect(() => {
@@ -2224,6 +2232,17 @@ export default function Animals() {
                   >
                     <PencilIcon className="h-4 w-4" />
                     Editar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAnimalModal(false);
+                      setAnimalToView(null);
+                      router.push(`/consulta-animal/${animalToView.id}`);
+                    }}
+                    className="btn-secondary flex items-center gap-2"
+                  >
+                    <EyeIcon className="h-4 w-4" />
+                    Resumo (celular)
                   </button>
                   <button
                     onClick={() => {

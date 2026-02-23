@@ -146,7 +146,7 @@ export default function AnimalDetail() {
   const [custos, setCustos] = useState([])
   const [loadingCustos, setLoadingCustos] = useState(false)
   const [avoMaterno, setAvoMaterno] = useState(null)
-  const [maeSerieRg, setMaeSerieRg] = useState(null) // Série e RG da mãe (busca automática)
+  const [maeSerieRg, setMaeSerieRg] = useState(null)
   const [localizacaoAtual, setLocalizacaoAtual] = useState(null)
   const [showExcelUpdater, setShowExcelUpdater] = useState(false)
   const [showQuickOccurrence, setShowQuickOccurrence] = useState(false)
@@ -173,6 +173,17 @@ export default function AnimalDetail() {
   const [ultimoEvento, setUltimoEvento] = useState(null)
   const [ocorrenciasRecentes, setOcorrenciasRecentes] = useState([])
   const [showUltimoEventoModal, setShowUltimoEventoModal] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+
+  // Detectar mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     const carregarUltimaIA = async () => {
@@ -1715,6 +1726,298 @@ export default function AnimalDetail() {
       primeiraColeta,
       ultimaColeta
     }
+  }
+
+  // VERSÃO MOBILE SIMPLIFICADA
+  if (isMobile && animal) {
+    const totalCustos = (custos || []).reduce((s, c) => s + parseFloat(c.valor || 0), 0)
+    const currentIdx = allAnimals.findIndex(a => a.id === animal.id)
+    const isDoadora = animal.fivs && animal.fivs.length > 0
+    
+    // Calcular stats de doadora
+    let statsDoadora = null
+    if (isDoadora) {
+      const totalColetas = animal.fivs.length
+      const totalOocitos = animal.fivs.reduce((sum, fiv) => sum + (parseInt(fiv.quantidade_oocitos) || 0), 0)
+      const mediaOocitos = totalColetas > 0 ? (totalOocitos / totalColetas).toFixed(1) : 0
+      const coletasOrdenadas = [...animal.fivs].sort((a, b) => new Date(b.data_fiv) - new Date(a.data_fiv))
+      const ultimaColeta = coletasOrdenadas[0]
+      
+      statsDoadora = {
+        totalColetas,
+        totalOocitos,
+        mediaOocitos,
+        ultimaColeta
+      }
+    }
+    
+    return (
+      <>
+        <Head>
+          <title>{animal.serie} {animal.rg} | Beef-Sync</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        </Head>
+
+        <div className="min-h-screen bg-gray-900 text-white">
+          {/* Header Ultra Compacto - Apenas Série e RG */}
+          <div className={`p-3 shadow-lg ${
+            animal.sexo?.toLowerCase().includes('macho') 
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-700'
+              : 'bg-gradient-to-r from-pink-600 to-purple-700'
+          }`}>
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => router.push('/animals')}
+                className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 active:scale-95"
+              >
+                <ArrowLeftIcon className="h-4 w-4" />
+              </button>
+              <h1 className="text-lg font-bold">
+                {animal.serie} {animal.rg}
+              </h1>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                animal.situacao === 'Ativo' ? 'bg-green-500' :
+                animal.situacao === 'Vendido' ? 'bg-blue-500' :
+                animal.situacao === 'Morto' ? 'bg-red-500' :
+                'bg-gray-500'
+              }`}>
+                {animal.situacao || 'Ativo'}
+              </span>
+            </div>
+
+            {/* Navegação */}
+            {allAnimals.length > 0 && currentIdx >= 0 && (
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-sm font-bold">
+                  {currentIdx + 1} de {allAnimals.length}
+                </span>
+                <div className="flex items-center gap-0.5 bg-white/10 rounded-lg p-0.5">
+                  <button
+                    onClick={() => router.push(`/animals/${allAnimals[0].id}`)}
+                    disabled={currentIdx === 0}
+                    className="p-1.5 rounded-lg hover:bg-white/20 disabled:opacity-30 active:scale-95"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/animals/${allAnimals[currentIdx - 1].id}`)}
+                    disabled={currentIdx === 0}
+                    className="p-1.5 rounded-lg hover:bg-white/20 disabled:opacity-30 active:scale-95"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/animals/${allAnimals[currentIdx + 1].id}`)}
+                    disabled={currentIdx === allAnimals.length - 1}
+                    className="p-1.5 rounded-lg hover:bg-white/20 disabled:opacity-30 active:scale-95"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => router.push(`/animals/${allAnimals[allAnimals.length - 1].id}`)}
+                    disabled={currentIdx === allAnimals.length - 1}
+                    className="p-1.5 rounded-lg hover:bg-white/20 disabled:opacity-30 active:scale-95"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Botões de Ação - Apenas 3 botões */}
+          <div className="grid grid-cols-2 gap-2 p-3">
+            <button
+              onClick={() => setShowQuickOccurrence(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-lg flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg"
+            >
+              <PlusCircleIcon className="h-7 w-7" />
+              <span className="text-sm">Lançar Ocorrência</span>
+            </button>
+
+            <button
+              onClick={() => setShowBatchOccurrence(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-4 rounded-lg flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg"
+            >
+              <PlusCircleIcon className="h-7 w-7" />
+              <span className="text-sm">Lançamento em Lote</span>
+            </button>
+
+            <button
+              onClick={async () => {
+                setGeneratingPDF(true)
+                try {
+                  await generateAnimalFichaPDF(animal)
+                  alert('✅ PDF gerado!')
+                } catch (err) {
+                  alert('❌ Erro ao gerar PDF')
+                } finally {
+                  setGeneratingPDF(false)
+                }
+              }}
+              disabled={generatingPDF}
+              className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-4 rounded-lg flex flex-col items-center justify-center gap-1 active:scale-95 shadow-lg disabled:opacity-50 col-span-2"
+            >
+              <DocumentArrowDownIcon className="h-7 w-7" />
+              <span className="text-sm">{generatingPDF ? 'Gerando...' : 'Gerar PDF'}</span>
+            </button>
+          </div>
+
+          {/* Custos */}
+          <div className="px-3 pb-3">
+            <div className="bg-gray-800 rounded-lg p-3 text-center border border-gray-700">
+              <p className="text-xs text-gray-400 mb-1">Custos</p>
+              <p className="text-2xl font-bold text-red-400">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCustos)}
+              </p>
+            </div>
+          </div>
+
+          {/* Badge Doadora + Stats FIV */}
+          {isDoadora && statsDoadora && (
+            <div className="px-3 pb-3">
+              <div className="bg-gradient-to-br from-pink-900 to-purple-900 rounded-lg p-4 border-2 border-pink-500">
+                <div className="flex items-center gap-2 mb-3">
+                  <BeakerIcon className="h-5 w-5 text-pink-300" />
+                  <h3 className="font-bold text-white">Animal Doadora</h3>
+                </div>
+                <p className="text-xs text-pink-200 mb-3">Possui histórico de coletas de oócitos (FIV)</p>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-black/20 rounded-lg p-2 text-center">
+                    <p className="text-2xl font-bold text-pink-300">{statsDoadora.totalColetas}</p>
+                    <p className="text-xs text-pink-200">Coletas</p>
+                  </div>
+                  <div className="bg-black/20 rounded-lg p-2 text-center">
+                    <p className="text-2xl font-bold text-purple-300">{statsDoadora.totalOocitos}</p>
+                    <p className="text-xs text-purple-200">Oócitos</p>
+                  </div>
+                  <div className="bg-black/20 rounded-lg p-2 text-center">
+                    <p className="text-2xl font-bold text-indigo-300">{statsDoadora.mediaOocitos}</p>
+                    <p className="text-xs text-indigo-200">Média</p>
+                  </div>
+                </div>
+
+                {statsDoadora.ultimaColeta && (
+                  <div className="mt-3 pt-3 border-t border-pink-700">
+                    <p className="text-xs text-pink-200">
+                      Última coleta: {new Date(statsDoadora.ultimaColeta.data_fiv).toLocaleDateString('pt-BR')}
+                      {statsDoadora.ultimaColeta.quantidade_oocitos && 
+                        ` • ${statsDoadora.ultimaColeta.quantidade_oocitos} oócitos`
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Informações Resumidas */}
+          <div className="px-3 pb-20">
+            <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+              <h3 className="font-bold text-white text-base mb-3">📋 Informações</h3>
+              
+              <div className="space-y-2 text-sm">
+                {animal.nome && (
+                  <div className="flex justify-between py-2 border-b border-gray-700">
+                    <span className="text-gray-400">Nome</span>
+                    <span className="font-semibold text-white">{animal.nome}</span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between py-2 border-b border-gray-700">
+                  <span className="text-gray-400">Raça</span>
+                  <span className="font-semibold text-white">{animal.raca || '-'}</span>
+                </div>
+
+                <div className="flex justify-between py-2 border-b border-gray-700">
+                  <span className="text-gray-400">Sexo</span>
+                  <span className="font-semibold text-white">{animal.sexo || '-'}</span>
+                </div>
+
+                <div className="flex justify-between py-2 border-b border-gray-700">
+                  <span className="text-gray-400">Idade</span>
+                  <span className="font-semibold text-white">{animal.meses || 0} meses</span>
+                </div>
+
+                {animal.peso && (
+                  <div className="flex justify-between py-2 border-b border-gray-700">
+                    <span className="text-gray-400">Peso</span>
+                    <span className="font-semibold text-white">{animal.peso} kg</span>
+                  </div>
+                )}
+
+                {animal.data_nascimento && (
+                  <div className="flex justify-between py-2 border-b border-gray-700">
+                    <span className="text-gray-400">Nascimento</span>
+                    <span className="font-semibold text-white">
+                      {new Date(animal.data_nascimento).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                )}
+
+                {animal.pai && (
+                  <div className="flex justify-between py-2 border-b border-gray-700">
+                    <span className="text-gray-400">Pai</span>
+                    <span className="font-semibold text-white">{animal.pai}</span>
+                  </div>
+                )}
+
+                {animal.mae && (
+                  <div className="flex justify-between py-2 border-b border-gray-700">
+                    <span className="text-gray-400">Mãe</span>
+                    <span className="font-semibold text-white">{animal.mae}</span>
+                  </div>
+                )}
+
+                {localizacaoAtual && (
+                  <div className="flex justify-between py-2 border-b border-gray-700">
+                    <span className="text-gray-400">Localização</span>
+                    <span className="font-semibold text-white">{localizacaoAtual.piquete}</span>
+                  </div>
+                )}
+
+                {animal.observacoes && (
+                  <div className="py-2">
+                    <p className="text-gray-400 text-xs mb-1">Observações</p>
+                    <p className="text-white text-sm">{animal.observacoes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Modais */}
+          <QuickOccurrenceForm
+            isOpen={showQuickOccurrence}
+            onClose={() => setShowQuickOccurrence(false)}
+            animal={animal}
+            onSuccess={() => {
+              setShowQuickOccurrence(false)
+              alert('✅ Ocorrência registrada!')
+            }}
+          />
+
+          <BatchOccurrenceForm
+            isOpen={showBatchOccurrence}
+            onClose={() => setShowBatchOccurrence(false)}
+            onSuccess={() => {
+              setShowBatchOccurrence(false)
+              alert('✅ Lançamento em lote realizado!')
+            }}
+          />
+        </div>
+      </>
+    )
   }
 
   return (

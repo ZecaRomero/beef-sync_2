@@ -442,7 +442,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6">
       {/* Mostrar erro se houver */}
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
@@ -462,90 +462,70 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Cabeçalho Melhorado */}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-2xl p-8 text-white shadow-2xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-white opacity-10 rounded-2xl"></div>
+      {/* Cabeçalho Mobile-Friendly */}
+      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-lg p-4 md:p-8 text-white shadow-lg relative overflow-hidden">
+        <div className="absolute inset-0 bg-white opacity-10 rounded-lg"></div>
         <div className="relative z-10">
-          <h1 className="text-4xl font-bold mb-3 flex items-center space-x-3">
-            <span className="text-5xl animate-pulse">📊</span>
-            <span>Dashboard - Beef Sync</span>
+          <h1 className="text-2xl md:text-4xl font-bold mb-2 flex items-center space-x-2">
+            <span className="text-3xl md:text-5xl">📊</span>
+            <span>Beef Sync</span>
           </h1>
-          <p className="text-blue-100 text-lg font-medium">Visão geral do seu rebanho e operações</p>
+          <p className="text-blue-100 text-sm md:text-lg">Visão geral do rebanho</p>
           
           {/* Toggle para Dashboard Interativo */}
-          <div className="mt-4 flex items-center space-x-3">
+          <div className="mt-3 flex items-center space-x-2">
             <button
               onClick={() => setShowInteractive(!showInteractive)}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-lg text-white font-medium transition-all duration-300 flex items-center space-x-2"
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-white text-sm md:text-base font-medium transition-all flex items-center space-x-1.5"
             >
               <span>{showInteractive ? '📊' : '📈'}</span>
-              <span>{showInteractive ? 'Dashboard Simples' : 'Dashboard Interativo'}</span>
+              <span className="hidden sm:inline">{showInteractive ? 'Simples' : 'Interativo'}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Beef IA Insights Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-        <Card className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-none shadow-lg transform transition-all hover:scale-[1.01]">
-          <CardBody className="p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <SparklesIcon className="h-32 w-32" />
-            </div>
+      {/* Beef IA Insights Section - Mobile Optimized */}
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <Card className="bg-gradient-to-br from-violet-600 to-indigo-600 text-white border-none shadow-lg">
+          <CardBody className="p-4 md:p-6 relative overflow-hidden">
             <div className="relative z-10">
-              <div className="flex items-center space-x-2 mb-4">
-                <span className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                  <SparklesIcon className="h-6 w-6 text-yellow-300" />
+              <div className="flex items-center space-x-2 mb-3">
+                <span className="bg-white/20 p-1.5 rounded-lg">
+                  <SparklesIcon className="h-5 w-5 text-yellow-300" />
                 </span>
-                <h3 className="font-bold text-xl tracking-tight">Beef IA Insights</h3>
+                <h3 className="font-bold text-lg">Beef IA Insights</h3>
               </div>
               
-              <div className="space-y-4">
-                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/10">
-                  <p className="font-medium flex items-start gap-3">
-                    <span className="text-xl">💡</span>
-                    <span className="leading-relaxed">
-                      A taxa de prenhez do lote "Matrizes A" aumentou <span className="text-green-300 font-bold">5%</span> este mês. 
-                      Continue com o protocolo nutricional atual.
-                    </span>
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm text-indigo-100">
-                  <span>Atualizado agora mesmo</span>
-                  <button className="hover:text-white underline decoration-dashed underline-offset-4">Ver análise completa</button>
-                </div>
+              <div className="bg-white/10 rounded-lg p-3 backdrop-blur-md border border-white/10">
+                <p className="text-sm flex items-start gap-2">
+                  <span className="text-lg">💡</span>
+                  <span className="leading-relaxed">
+                    Taxa de prenhez "Matrizes A" aumentou <span className="text-green-300 font-bold">5%</span> este mês.
+                  </span>
+                </p>
               </div>
             </div>
           </CardBody>
         </Card>
 
-        <Card className="bg-gradient-to-br from-blue-600 to-cyan-600 text-white border-none shadow-lg transform transition-all hover:scale-[1.01]">
-          <CardBody className="p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-              <LightBulbIcon className="h-32 w-32" />
-            </div>
+        <Card className="bg-gradient-to-br from-blue-600 to-cyan-600 text-white border-none shadow-lg">
+          <CardBody className="p-4 md:p-6 relative overflow-hidden">
             <div className="relative z-10">
-              <div className="flex items-center space-x-2 mb-4">
-                <span className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                  <LightBulbIcon className="h-6 w-6 text-yellow-300" />
+              <div className="flex items-center space-x-2 mb-3">
+                <span className="bg-white/20 p-1.5 rounded-lg">
+                  <LightBulbIcon className="h-5 w-5 text-yellow-300" />
                 </span>
-                <h3 className="font-bold text-xl tracking-tight">Dica de Manejo</h3>
+                <h3 className="font-bold text-lg">Dica de Manejo</h3>
               </div>
               
-              <div className="space-y-4">
-                <div className="bg-white/10 rounded-xl p-4 backdrop-blur-md border border-white/10">
-                  <p className="font-medium flex items-start gap-3">
-                    <span className="text-xl">🌡️</span>
-                    <span className="leading-relaxed">
-                      Previsão de alta temperatura para amanhã. Considere antecipar o manejo do gado para o início da manhã.
-                    </span>
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-between text-sm text-blue-100">
-                  <span>Sugestão baseada na previsão do tempo</span>
-                </div>
+              <div className="bg-white/10 rounded-lg p-3 backdrop-blur-md border border-white/10">
+                <p className="text-sm flex items-start gap-2">
+                  <span className="text-lg">🌡️</span>
+                  <span className="leading-relaxed">
+                    Alta temperatura amanhã. Antecipe o manejo para a manhã.
+                  </span>
+                </p>
               </div>
             </div>
           </CardBody>
@@ -595,53 +575,45 @@ export default function Dashboard() {
         <InteractiveDashboard />
       ) : (
         <>
-          {/* Cards de Estatísticas com Dados Reais */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <CardBody className="flex items-center space-x-4">
-                <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-800 dark:to-blue-900 rounded-full">
-                  <UserGroupIcon className="h-8 w-8 text-blue-600 dark:text-blue-300" />
+          {/* Cards de Estatísticas - Mobile Optimized */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            <Card>
+              <CardBody className="flex flex-col items-center text-center p-3 md:p-4">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-800 dark:to-blue-900 rounded-full mb-2">
+                  <UserGroupIcon className="h-5 w-5 md:h-8 md:w-8 text-blue-600 dark:text-blue-300" />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalAnimals}</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Total de Animais</p>
-                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{stats.totalAnimals}</h3>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Total</p>
               </CardBody>
             </Card>
 
-            <Card className="hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <CardBody className="flex items-center space-x-4">
-                <div className="p-3 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 rounded-full">
-                  <ChartBarIcon className="h-8 w-8 text-green-600 dark:text-green-300" />
+            <Card>
+              <CardBody className="flex flex-col items-center text-center p-3 md:p-4">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-800 dark:to-green-900 rounded-full mb-2">
+                  <ChartBarIcon className="h-5 w-5 md:h-8 md:w-8 text-green-600 dark:text-green-300" />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.activeAnimals}</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Animais Ativos</p>
-                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{stats.activeAnimals}</h3>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Ativos</p>
               </CardBody>
             </Card>
 
-            <Card className="hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <CardBody className="flex items-center space-x-4">
-                <div className="p-3 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800 dark:to-purple-900 rounded-full">
-                  <CubeIcon className="h-8 w-8 text-purple-600 dark:text-purple-300" />
+            <Card>
+              <CardBody className="flex flex-col items-center text-center p-3 md:p-4">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-800 dark:to-purple-900 rounded-full mb-2">
+                  <CubeIcon className="h-5 w-5 md:h-8 md:w-8 text-purple-600 dark:text-purple-300" />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalLocations}</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Localizações</p>
-                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{stats.totalLocations}</h3>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Locais</p>
               </CardBody>
             </Card>
 
-            <Card className="hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
-              <CardBody className="flex items-center space-x-4">
-                <div className="p-3 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-800 dark:to-orange-900 rounded-full">
-                  <CalendarIcon className="h-8 w-8 text-orange-600 dark:text-orange-300" />
+            <Card>
+              <CardBody className="flex flex-col items-center text-center p-3 md:p-4">
+                <div className="p-2 md:p-3 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-800 dark:to-orange-900 rounded-full mb-2">
+                  <CalendarIcon className="h-5 w-5 md:h-8 md:w-8 text-orange-600 dark:text-orange-300" />
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{stats.todayEvents}</h3>
-                  <p className="text-gray-600 dark:text-gray-400">Eventos Hoje</p>
-                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{stats.todayEvents}</h3>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Hoje</p>
               </CardBody>
             </Card>
           </div>
@@ -656,106 +628,66 @@ export default function Dashboard() {
             <AccessMonitor />
           </div>
 
-          {/* Ações Rápidas Melhoradas */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="hover:shadow-xl transition-all duration-300">
-              <CardHeader>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-                  <span className="mr-2">⚡</span>
-                  Ações Rápidas
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">Acesse as principais funcionalidades</p>
-              </CardHeader>
-              <CardBody>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button
-                    onClick={() => window.location.href = '/animals'}
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
-                  >
-                    <span>👥</span>
-                    <span>Gerenciar Animais</span>
-                  </Button>
+          {/* Ações Rápidas - Mobile Optimized */}
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                <span className="mr-2">⚡</span>
+                Ações Rápidas
+              </h2>
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4">
+                <Button
+                  onClick={() => window.location.href = '/animals'}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 md:py-3 px-2 md:px-4 rounded-lg text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2"
+                >
+                  <span className="text-lg md:text-xl">👥</span>
+                  <span>Animais</span>
+                </Button>
 
-                  <Button
-                    onClick={() => window.location.href = '/localizacao-animais'}
-                    className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
-                  >
-                    <span>📍</span>
-                    <span>Localização</span>
-                  </Button>
+                <Button
+                  onClick={() => window.location.href = '/localizacao-animais'}
+                  className="bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 md:py-3 px-2 md:px-4 rounded-lg text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2"
+                >
+                  <span className="text-lg md:text-xl">📍</span>
+                  <span>Localização</span>
+                </Button>
 
-                  <Button
-                    onClick={() => window.location.href = '/protocolos'}
-                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
-                  >
-                    <span>📋</span>
-                    <span>Protocolos</span>
-                  </Button>
+                <Button
+                  onClick={() => window.location.href = '/protocolos'}
+                  className="bg-red-500 hover:bg-red-600 text-white font-medium py-2 md:py-3 px-2 md:px-4 rounded-lg text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2"
+                >
+                  <span className="text-lg md:text-xl">📋</span>
+                  <span>Protocolos</span>
+                </Button>
 
-                  <Button
-                    onClick={() => window.location.href = '/dados-teste'}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
-                  >
-                    <span>🧪</span>
-                    <span>Dados de Teste</span>
-                  </Button>
+                <Button
+                  onClick={() => window.location.href = '/dados-teste'}
+                  className="bg-green-500 hover:bg-green-600 text-white font-medium py-2 md:py-3 px-2 md:px-4 rounded-lg text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2"
+                >
+                  <span className="text-lg md:text-xl">🧪</span>
+                  <span>Testes</span>
+                </Button>
 
-                  <Button
-                    onClick={() => window.location.href = '/relatorios-lotes'}
-                    className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
-                  >
-                    <span>📊</span>
-                    <span>Lançamento no APP</span>
-                  </Button>
+                <Button
+                  onClick={() => window.location.href = '/relatorios-lotes'}
+                  className="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 md:py-3 px-2 md:px-4 rounded-lg text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2"
+                >
+                  <span className="text-lg md:text-xl">📊</span>
+                  <span>Lançamentos</span>
+                </Button>
 
-                  <Button
-                    onClick={() => window.location.href = '/teste-lotes'}
-                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
-                  >
-                    <span>🔬</span>
-                    <span>Teste de Lotes</span>
-                  </Button>
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* Status do Sistema Melhorado */}
-            <Card className="hover:shadow-xl transition-all duration-300">
-              <CardHeader>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-                  <span className="mr-2">🔧</span>
-                  Status do Sistema
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">Informações sobre o sistema</p>
-              </CardHeader>
-              <CardBody>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <span className="text-gray-700 dark:text-gray-300 font-medium">Banco de Dados</span>
-                    <span className="px-3 py-1 bg-green-500 text-white rounded-full text-sm font-medium flex items-center space-x-1">
-                      <span>✅</span>
-                      <span>Conectado</span>
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <span className="text-gray-700 dark:text-gray-300 font-medium">API Status</span>
-                    <span className="px-3 py-1 bg-green-500 text-white rounded-full text-sm font-medium flex items-center space-x-1">
-                      <span>✅</span>
-                      <span>Online</span>
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <span className="text-gray-700 dark:text-gray-300 font-medium">Última Sincronização</span>
-                    <span className="text-gray-600 dark:text-gray-400 text-sm font-medium">
-                      {new Date().toLocaleString('pt-BR')}
-                    </span>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
+                <Button
+                  onClick={() => window.location.href = '/teste-lotes'}
+                  className="bg-indigo-500 hover:bg-indigo-600 text-white font-medium py-2 md:py-3 px-2 md:px-4 rounded-lg text-xs md:text-sm flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2"
+                >
+                  <span className="text-lg md:text-xl">🔬</span>
+                  <span>Teste Lotes</span>
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
 
           {/* Aviso sobre Funcionalidades Melhorado */}
           <Card className="hover:shadow-lg transition-all duration-300">
