@@ -7,6 +7,9 @@ export default async function handler(req, res) {
 
   const { id, serie, rg } = req.query
 
+  // Log para debug
+  console.log('🔍 Verificar animal:', { id, serie, rg })
+
   try {
     let result
 
