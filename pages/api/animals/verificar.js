@@ -79,32 +79,41 @@ export default async function handler(req, res) {
     }
 
     const animal = result.rows[0]
+    let custosInfo = { quantidade: 0, total: 0 }
+    let dnaInfo = null
 
-    // Buscar informações adicionais
-    const custos = await query(
-      'SELECT COUNT(*) as total, SUM(valor) as total_valor FROM custos WHERE animal_id = $1',
-      [animal.id]
-    )
+    try {
+      const custos = await query(
+        'SELECT COUNT(*) as total, SUM(valor) as total_valor FROM custos WHERE animal_id = $1',
+        [animal.id]
+      )
+      custosInfo = {
+        quantidade: parseInt(custos.rows[0]?.total || 0),
+        total: parseFloat(custos.rows[0]?.total_valor || 0)
+      }
+    } catch (_) { /* tabela custos pode não existir */ }
 
-    const dna = await query(
-      'SELECT laboratorio_dna, data_envio_dna, custo_dna FROM animais WHERE id = $1',
-      [animal.id]
-    )
+    try {
+      const dna = await query(
+        'SELECT laboratorio_dna, data_envio_dna, custo_dna FROM animais WHERE id = $1',
+        [animal.id]
+      )
+      if (dna.rows[0]?.laboratorio_dna) {
+        dnaInfo = {
+          laboratorio: dna.rows[0].laboratorio_dna,
+          data_envio: dna.rows[0].data_envio_dna,
+          custo: parseFloat(dna.rows[0].custo_dna || 0)
+        }
+      }
+    } catch (_) { /* colunas dna podem não existir */ }
 
     res.status(200).json({
       success: true,
       message: 'Animal encontrado',
       data: {
         ...animal,
-        custos: {
-          quantidade: parseInt(custos.rows[0].total || 0),
-          total: parseFloat(custos.rows[0].total_valor || 0)
-        },
-        dna: dna.rows[0]?.laboratorio_dna ? {
-          laboratorio: dna.rows[0].laboratorio_dna,
-          data_envio: dna.rows[0].data_envio_dna,
-          custo: parseFloat(dna.rows[0].custo_dna || 0)
-        } : null
+        custos: custosInfo,
+        dna: dnaInfo
       }
     })
   } catch (error) {
