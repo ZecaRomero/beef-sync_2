@@ -37,11 +37,13 @@ export default async function handler(req, res) {
         [rg]
       )
     } else if (serie && rg) {
+      // Busca flexível: série case-insensitive, rg aceita texto ou número
       result = await query(
         `SELECT id, serie, rg, nome, data_nascimento, situacao 
          FROM animais 
-         WHERE serie = $1 AND rg = $2`,
-        [serie, rg]
+         WHERE UPPER(TRIM(COALESCE(serie,''))) = UPPER(TRIM($1)) 
+         AND (rg::text = $2 OR TRIM(rg::text) = TRIM($2))`,
+        [String(serie).trim(), String(rg).trim()]
       )
     } else {
       return res.status(400).json({ 

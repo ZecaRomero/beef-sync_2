@@ -56,17 +56,21 @@ export default function ConsultaRapida() {
         if (parsed.id) params.set('id', parsed.id)
         else { params.set('serie', parsed.serie); params.set('rg', parsed.rg) }
         fetch(`/api/animals/verificar?${params}`)
-          .then((r) => r.json())
-          .then((data) => {
+          .then((r) => r.json().then((data) => ({ res: r, data })))
+          .then(({ res, data }) => {
             if (data.success && data.data?.id) {
               router.replace(`/animals/${data.data.id}`)
             } else {
-              setError(data.message || 'Animal não encontrado')
+              setError(
+                res.status === 500
+                  ? 'Serviço temporariamente indisponível. Verifique sua conexão e tente novamente.'
+                  : (data.message || 'Animal não encontrado')
+              )
               setLoading(false)
             }
           })
           .catch(() => {
-            setError('Erro ao buscar')
+            setError('Erro ao buscar. Verifique sua conexão.')
             setLoading(false)
           })
       }
@@ -99,7 +103,10 @@ export default function ConsultaRapida() {
       const data = await res.json()
 
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Animal não encontrado')
+        const msg = res.status === 500
+          ? 'Serviço temporariamente indisponível. Verifique sua conexão e tente novamente.'
+          : (data.message || 'Animal não encontrado')
+        throw new Error(msg)
       }
 
       const animalId = data.data?.id

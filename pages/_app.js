@@ -93,8 +93,8 @@ export default function App({ Component, pageProps }) {
     }
   };
 
-  // Pages that don't need layout (like login, 404, 500, etc.)
-  const noLayoutPages = ['/login', '/404', '/500'];
+  // Pages that don't need layout (like login, 404, 500, consulta celular, etc.)
+  const noLayoutPages = ['/login', '/404', '/500', '/a'];
   const useLayout = !noLayoutPages.includes(router.pathname);
 
   return (
