@@ -15,7 +15,7 @@ import { Card, CardHeader, CardBody } from '../ui/Card'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Badge from '../ui/Badge'
-import { Modal } from '../ui/Modal'
+import Modal from '../ui/Modal'
 
 const FREQUENCY_OPTIONS = [
   { value: 'daily', label: 'Diário', description: 'Todo dia às 08:00' },

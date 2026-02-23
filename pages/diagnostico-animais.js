@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 
 import SimpleCard, { SimpleCardHeader as CardHeader, SimpleCardBody as CardBody } from '../components/ui/SimpleCard'
-import { Button } from '../components/ui/Button'
+import Button from '../components/ui/Button'
 import { 
   MagnifyingGlassIcon,
   ExclamationTriangleIcon,

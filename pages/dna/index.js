@@ -14,7 +14,7 @@ import {
   CheckIcon,
   DocumentArrowDownIcon
 } from '../../components/ui/Icons'
-import { Modal } from '../../components/ui/Modal'
+import Modal from '../../components/ui/Modal'
 
 export default function DNAPage() {
   const router = useRouter()

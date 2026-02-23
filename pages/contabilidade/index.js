@@ -26,7 +26,7 @@ import {
 } from '../../components/ui/Icons'
 import Button from '../../components/ui/Button'
 import { Card, CardHeader, CardBody } from '../../components/ui/Card'
-import { Modal } from '../../components/ui/Modal'
+import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
 import ModernLayout from '../../components/ui/ModernLayout'
 import StatsCard from '../../components/ui/StatsCard'

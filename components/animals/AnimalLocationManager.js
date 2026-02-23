@@ -3,8 +3,8 @@ import { Card, CardHeader, CardBody } from '../ui/Card'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Select from '../ui/Select'
-import { Modal } from '../ui/Modal'
-import { Toast } from '../ui/Toast'
+import Modal from '../ui/Modal'
+import Toast from '../ui/Toast'
 
 const AnimalLocationManager = ({ animalId, animalInfo }) => {
   const [localizacoes, setLocalizacoes] = useState([])
