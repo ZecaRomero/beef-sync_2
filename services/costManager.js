@@ -5,13 +5,22 @@ class CostManager {
     this.medicamentos = this.initializeMedicamentos()
     this.custosPorAnimal = new Map()
     this.useLocalStorage = false
+    this.dbChecked = false
     
-    // Verificar conexão com banco na inicialização
-    this.checkDatabaseConnection()
+    // Não verificar conexão no constructor para evitar problemas no build
+    // A verificação será feita na primeira chamada de método que precisar do banco
   }
 
-  // Verificar conexão com banco de dados
+  // Verificar conexão com banco de dados (lazy loading)
   async checkDatabaseConnection() {
+    if (this.dbChecked) return
+    
+    // Só verificar se estiver no browser
+    if (typeof window === 'undefined') {
+      this.dbChecked = true
+      return
+    }
+    
     try {
       const response = await fetch('/api/database/test')
       const result = await response.json()
@@ -27,6 +36,8 @@ class CostManager {
       // Fallback desativado - garantir que o erro seja visível mas não use localStorage para escrita
       this.useLocalStorage = false 
       console.error('⚠️ CostManager: Sistema operando sem persistência local para garantir integridade do PostgreSQL')
+    } finally {
+      this.dbChecked = true
     }
   }
 
