@@ -30,7 +30,7 @@ export default function ConsultaRapida() {
         .then((r) => r.json().then((data) => ({ res: r, data })))
         .then(({ res, data }) => {
           if (data.success && data.data?.id) {
-            router.replace(`/animals/${data.data.id}`)
+            router.replace(`/consulta-animal/${data.data.id}`)
           } else {
             setError(
               res.status === 500
@@ -76,7 +76,7 @@ export default function ConsultaRapida() {
 
       const animalId = data.data?.id
       if (animalId) {
-        router.push(`/animals/${animalId}`)
+        router.push(`/consulta-animal/${animalId}`)
       } else {
         throw new Error('Animal não encontrado')
       }
@@ -96,9 +96,17 @@ export default function ConsultaRapida() {
       </Head>
       <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6 bg-gray-50 dark:bg-gray-900">
         <div className="w-full max-w-sm">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 text-center">
+          <div className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-amber-600 dark:text-amber-500 mb-2">
+              Beef-Sync
+            </h1>
+            <p className="text-base text-gray-700 dark:text-gray-300">
+              Bem-vindo! Use os campos abaixo para consultar a ficha de um animal.
+            </p>
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 text-center">
             Consulta Animal
-          </h1>
+          </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">
             Digite a Série e o RG do animal
           </p>
@@ -111,7 +119,7 @@ export default function ConsultaRapida() {
                 type="text"
                 value={serie}
                 onChange={(e) => setSerie(e.target.value)}
-                placeholder="Ex: CJCJ"
+                placeholder="Digite aqui a Série"
                 className={inputCls}
                 autoComplete="off"
                 autoCapitalize="characters"
@@ -125,7 +133,7 @@ export default function ConsultaRapida() {
                 type="text"
                 value={rg}
                 onChange={(e) => setRg(e.target.value)}
-                placeholder="Ex: 15563"
+                placeholder="Digite aqui o RG"
                 className={inputCls}
                 autoComplete="off"
                 inputMode="numeric"

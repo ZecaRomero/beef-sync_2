@@ -1,7 +1,9 @@
-/* @import deve vir ANTES de qualquer outra regra - ordem: Tailwind primeiro, depois nossos arquivos */
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+/* Tailwind CSS - Sintaxe correta para Next.js 16 + Turbopack */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Importar nossos arquivos CSS customizados */
 @import './design-system.css';
 @import './animations.css';
 @import './animal-detail-enhanced.css';
