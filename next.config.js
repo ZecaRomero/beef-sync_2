@@ -5,7 +5,6 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: true },
   outputFileTracingRoot: path.join(__dirname, './'),
   webpack: (config, { isServer }) => {
-    // Twilio opcional - não falha build se não instalado
     config.resolve.fallback = { ...config.resolve.fallback, fs: false };
     if (isServer) {
       const orig = config.externals || [];
