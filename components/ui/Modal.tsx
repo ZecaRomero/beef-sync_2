@@ -145,6 +145,7 @@ const Modal: React.FC<ModalProps> = ({
   )
 
   // Renderizar no portal
+  if (typeof window === 'undefined') return null
   return createPortal(modalContent, document.body)
 }
 

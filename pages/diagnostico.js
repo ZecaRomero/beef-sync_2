@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 
 export default function Diagnostico() {
   const [diagnostics, setDiagnostics] = useState({})
   const [isClient, setIsClient] = useState(false)
+  const [testState, setTestState] = useState(0)
+  const [modalOpen, setModalOpen] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
@@ -11,8 +13,8 @@ export default function Diagnostico() {
       const results = {
         timestamp: new Date().toISOString(),
         userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'N/A',
-        reactVersion: require('react').version,
-        nextVersion: require('next').version,
+        reactVersion: (typeof React !== 'undefined' && React.version) ? React.version : 'N/A',
+        nextVersion: 'N/A',
         windowDefined: typeof window !== 'undefined',
         documentDefined: typeof document !== 'undefined',
         localStorageAvailable: false,
@@ -61,9 +63,6 @@ export default function Diagnostico() {
 
     runDiagnostics()
   }, [])
-
-  const [testState, setTestState] = useState(0)
-  const [modalOpen, setModalOpen] = useState(false)
 
   const handleTestClick = () => {
     console.log('Teste de clique executado!')

@@ -12,10 +12,12 @@ function normalizeWhatsAppNumber(whatsapp) {
   return `55${digits}`
 }
 
-// Helper para verificar se Twilio está disponível
+// Helper para verificar se Twilio está disponível (evita análise estática no build)
 const isTwilioAvailable = () => {
   try {
-    require.resolve('twilio')
+    if (typeof require === 'undefined') return false
+    const mod = 'tw' + 'ilio' // Evita que Turbopack/Webpack resolva estaticamente
+    require.resolve(mod)
     return true
   } catch {
     return false
