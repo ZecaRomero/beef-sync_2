@@ -1,104 +1,69 @@
 /**
  * Consulta Rápida de Animal - Otimizada para celular
- * Acesse pelo celular: digite Série e RG (ex: 35 1173 ou 35-1173) e veja a ficha do animal
- * URL curta: /a
+ * Acesse pelo celular: /a - sem sidebar, somente Série e RG em inputs separados
  */
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
-function parseInput(input) {
-  if (!input || typeof input !== 'string') return null
-  const s = input.trim()
-  if (!s) return null
-
-  // Só números? Pode ser ID do animal
-  if (/^\d+$/.test(s)) {
-    return { id: s }
-  }
-
-  // Formato "Série RG" ou "Série-RG" ou "Série  RG"
-  const parts = s.split(/[\s\-]+/).filter(Boolean)
-  if (parts.length >= 2) {
-    const serie = parts[0].trim()
-    const rg = parts.slice(1).join(' ').trim()
-    if (serie && rg) return { serie, rg }
-  }
-
-  return null
-}
-
 export default function ConsultaRapida() {
   const router = useRouter()
-  const [input, setInput] = useState('')
+  const [serie, setSerie] = useState('')
+  const [rg, setRg] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const inputRef = useRef(null)
+  const serieRef = useRef(null)
   const autoSearchDone = useRef(false)
 
-  // Auto-buscar se vier pela URL: /a?q=35+1173 ou /a?serie=35&rg=1173 (link salvo no celular)
+  // Auto-buscar se vier pela URL: /a?serie=CJCJ&rg=15563
   useEffect(() => {
     if (!router.isReady || autoSearchDone.current) return
-    const { q, serie, rg, id } = router.query
-    let searchInput = ''
-    if (q) searchInput = String(q).replace(/\+/g, ' ')
-    else if (serie && rg) searchInput = `${serie} ${rg}`
-    else if (id) searchInput = String(id)
-
-    if (searchInput) {
+    const { serie: qSerie, rg: qRg } = router.query
+    if (qSerie && qRg) {
       autoSearchDone.current = true
-      setInput(searchInput)
-      const parsed = parseInput(searchInput)
-      if (parsed) {
-        setLoading(true)
-        const params = new URLSearchParams()
-        if (parsed.id) params.set('id', parsed.id)
-        else { params.set('serie', parsed.serie); params.set('rg', parsed.rg) }
-        fetch(`/api/animals/verificar?${params}`)
-          .then((r) => r.json().then((data) => ({ res: r, data })))
-          .then(({ res, data }) => {
-            if (data.success && data.data?.id) {
-              router.replace(`/animals/${data.data.id}`)
-            } else {
-              setError(
-                res.status === 500
-                  ? 'Serviço temporariamente indisponível. Verifique sua conexão e tente novamente.'
-                  : (data.message || 'Animal não encontrado')
-              )
-              setLoading(false)
-            }
-          })
-          .catch(() => {
-            setError('Erro ao buscar. Verifique sua conexão.')
+      setSerie(String(qSerie).trim())
+      setRg(String(qRg).trim())
+      setLoading(true)
+      const params = new URLSearchParams({ serie: qSerie, rg: qRg })
+      fetch(`/api/animals/verificar?${params}`)
+        .then((r) => r.json().then((data) => ({ res: r, data })))
+        .then(({ res, data }) => {
+          if (data.success && data.data?.id) {
+            router.replace(`/animals/${data.data.id}`)
+          } else {
+            setError(
+              res.status === 500
+                ? 'Serviço temporariamente indisponível. Verifique sua conexão e tente novamente.'
+                : (data.message || 'Animal não encontrado')
+            )
             setLoading(false)
-          })
-      }
+          }
+        })
+        .catch(() => {
+          setError('Erro ao buscar. Verifique sua conexão.')
+          setLoading(false)
+        })
     }
   }, [router.isReady, router.query])
 
-  // Foco no input ao carregar (mobile)
   useEffect(() => {
-    inputRef.current?.focus()
+    serieRef.current?.focus()
   }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    const parsed = parseInput(input)
-    if (!parsed) {
-      setError('Digite Série e RG (ex: 35 1173) ou o ID do animal')
+    const s = serie.trim()
+    const r = rg.trim()
+    if (!s || !r) {
+      setError('Preencha Série e RG')
       return
     }
 
     setLoading(true)
     try {
-      const params = new URLSearchParams()
-      if (parsed.id) params.set('id', parsed.id)
-      else {
-        params.set('serie', parsed.serie)
-        params.set('rg', parsed.rg)
-      }
+      const params = new URLSearchParams({ serie: s, rg: r })
       const res = await fetch(`/api/animals/verificar?${params}`)
       const data = await res.json()
 
@@ -116,10 +81,12 @@ export default function ConsultaRapida() {
         throw new Error('Animal não encontrado')
       }
     } catch (err) {
-      setError(err.message || 'Erro ao buscar. Verifique Série e RG.')
+      setError(err.message || 'Erro ao buscar.')
       setLoading(false)
     }
   }
+
+  const inputCls = 'w-full px-4 py-4 text-lg rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500 focus:border-transparent'
 
   return (
     <>
@@ -127,28 +94,44 @@ export default function ConsultaRapida() {
         <title>Consulta Animal | Beef-Sync</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
-      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 text-center">
-            Consulta Rápida
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6 bg-gray-50 dark:bg-gray-900">
+        <div className="w-full max-w-sm">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1 text-center">
+            Consulta Animal
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">
-            Digite a Série e RG do animal
+            Digite a Série e o RG do animal
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ex: 35 1173 ou 35-1173"
-              className="w-full px-4 py-4 text-lg rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              autoComplete="off"
-              autoCapitalize="off"
-              inputMode="text"
-              disabled={loading}
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Série</label>
+              <input
+                ref={serieRef}
+                type="text"
+                value={serie}
+                onChange={(e) => setSerie(e.target.value)}
+                placeholder="Ex: CJCJ"
+                className={inputCls}
+                autoComplete="off"
+                autoCapitalize="characters"
+                inputMode="text"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">RG</label>
+              <input
+                type="text"
+                value={rg}
+                onChange={(e) => setRg(e.target.value)}
+                placeholder="Ex: 15563"
+                className={inputCls}
+                autoComplete="off"
+                inputMode="numeric"
+                disabled={loading}
+              />
+            </div>
             <button
               type="submit"
               disabled={loading}
@@ -175,7 +158,7 @@ export default function ConsultaRapida() {
           )}
 
           <p className="mt-6 text-xs text-gray-400 dark:text-gray-500 text-center">
-            Aceita: Série RG (35 1173), Série-RG (35-1173) ou ID (1173)
+            Ex: Série CJCJ e RG 15563
           </p>
         </div>
       </div>
