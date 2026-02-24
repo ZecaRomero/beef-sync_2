@@ -46,6 +46,7 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Lista de Animais', href: '/animals', description: 'Gerenciar rebanho' },
       { name: '🔍 Consulta Rápida', href: '/a', description: 'Buscar por Série e RG (celular)' },
+      { name: '📱 Mobile + Ranking iABCZ', href: '/mobile-animal', description: 'Consulta mobile com importação e ranking' },
       { name: 'Nascimentos', href: '/nascimentos', description: 'Registrar nascimentos' },
       { name: 'Gestação', href: '/gestacao', description: 'Controle reprodutivo' },
       { name: 'Ocorrências', href: '/ocorrencias', description: 'Eventos do rebanho' },

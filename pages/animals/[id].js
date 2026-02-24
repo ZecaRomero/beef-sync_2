@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react'
 
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import Image from 'next/image'
 import { Card, CardBody, CardHeader } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
@@ -27,6 +28,8 @@ import {
 } from '@heroicons/react/24/outline'
 import logger from '../../utils/logger'
 import AnimalExcelUpdater from '../../components/animals/AnimalExcelUpdater'
+import ImportGeneticaModal from '../../components/animals/ImportGeneticaModal'
+import RankingIABCZCard from '../../components/animals/RankingIABCZCard'
 import QuickOccurrenceForm from '../../components/animals/QuickOccurrenceForm'
 import BatchOccurrenceForm from '../../components/animals/BatchOccurrenceForm'
 import { generateAnimalFichaPDF } from '../../utils/animalFichaPDF'
@@ -143,12 +146,16 @@ export default function AnimalDetail() {
   const [animal, setAnimal] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showSplash, setShowSplash] = useState(false)
+  const [splashProgress, setSplashProgress] = useState(0)
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
   const [custos, setCustos] = useState([])
   const [loadingCustos, setLoadingCustos] = useState(false)
   const [avoMaterno, setAvoMaterno] = useState(null)
   const [maeSerieRg, setMaeSerieRg] = useState(null)
   const [localizacaoAtual, setLocalizacaoAtual] = useState(null)
   const [showExcelUpdater, setShowExcelUpdater] = useState(false)
+  const [showImportGenetica, setShowImportGenetica] = useState(false)
   const [showQuickOccurrence, setShowQuickOccurrence] = useState(false)
   const [showBatchOccurrence, setShowBatchOccurrence] = useState(false)
   const [examesAndrologicos, setExamesAndrologicos] = useState([])
@@ -174,6 +181,38 @@ export default function AnimalDetail() {
   const [ocorrenciasRecentes, setOcorrenciasRecentes] = useState([])
   const [showUltimoEventoModal, setShowUltimoEventoModal] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+
+  // Detectar se é mobile e mostrar splash apenas em mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      setIsMobileDevice(mobile)
+      setShowSplash(mobile)
+    }
+    checkMobile()
+  }, [])
+
+  // Splash screen com animação de progresso (apenas mobile)
+  useEffect(() => {
+    if (!showSplash) return
+    
+    const duration = 5000 // 5 segundos
+    const interval = 50 // atualizar a cada 50ms
+    const steps = duration / interval
+    let currentStep = 0
+
+    const timer = setInterval(() => {
+      currentStep++
+      setSplashProgress((currentStep / steps) * 100)
+      
+      if (currentStep >= steps) {
+        clearInterval(timer)
+        setTimeout(() => setShowSplash(false), 300)
+      }
+    }, interval)
+
+    return () => clearInterval(timer)
+  }, [showSplash])
 
   // Detectar mobile
   useEffect(() => {
@@ -1661,6 +1700,77 @@ export default function AnimalDetail() {
     )
   }
 
+  // Splash Screen
+  if (showSplash) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center z-[9999]">
+        <div className="text-center space-y-8 px-4">
+          {/* Logo da Fazenda com Prancheta */}
+          <div className="relative">
+            <div className="animate-bounce">
+              <div className="w-40 h-40 mx-auto relative rounded-2xl shadow-2xl overflow-hidden bg-white">
+                <div className="relative w-full h-full">
+                  <Image 
+                    src="/logo-santanna.png.jpg" 
+                    alt="Logo Fazenda Sant'Anna"
+                    fill
+                    className="object-cover"
+                    style={{ objectPosition: 'center center' }}
+                    priority
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Prancheta/Clipboard animado */}
+            <div 
+              className="absolute -right-4 top-0 text-blue-300"
+              style={{ 
+                animation: 'float 2s ease-in-out infinite',
+                transformOrigin: 'center'
+              }}
+            >
+              <svg className="w-16 h-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                <path d="M9 12h6m-6 4h6"/>
+              </svg>
+            </div>
+          </div>
+
+          {/* Texto */}
+          <div className="space-y-3">
+            <h1 className="text-4xl font-bold text-white tracking-tight">
+              Beef-Sync
+            </h1>
+            <p className="text-blue-200 text-lg animate-pulse">
+              Iniciando o sistema...
+            </p>
+          </div>
+
+          {/* Barra de progresso */}
+          <div className="w-64 mx-auto">
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-orange-400 to-blue-400 transition-all duration-300 ease-out"
+                style={{ width: `${splashProgress}%` }}
+              />
+            </div>
+            <p className="text-gray-400 text-sm mt-2">
+              {Math.round(splashProgress)}%
+            </p>
+          </div>
+        </div>
+
+        <style jsx>{`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(-5deg); }
+            50% { transform: translateY(-10px) rotate(5deg); }
+          }
+        `}</style>
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -2258,6 +2368,15 @@ export default function AnimalDetail() {
           <Button 
             variant="secondary"
             modern
+            onClick={() => setShowImportGenetica(true)}
+            className="flex items-center gap-2"
+          >
+            <DocumentArrowUpIcon className="h-4 w-4" />
+            Importar Genética (Série, RG, iABCZ, Deca)
+          </Button>
+          <Button 
+            variant="secondary"
+            modern
             onClick={() => setShowExcelUpdater(true)}
             className="flex items-center gap-2"
           >
@@ -2367,6 +2486,14 @@ export default function AnimalDetail() {
         {/* Items */}
         {fabOpen && (
           <div className="flex flex-col items-end gap-3 mb-3 animate-slide-in-left">
+            <button
+              onClick={() => { setShowImportGenetica(true); setFabOpen(false) }}
+              title="Importar Genética (Série, RG, iABCZ, Deca)"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 text-white shadow-lg hover:shadow-2xl hover:bg-emerald-500 transition-all"
+            >
+              <DocumentArrowUpIcon className="h-5 w-5" />
+              <span className="text-sm font-semibold">Importar Genética</span>
+            </button>
             <button
               onClick={() => { setShowQuickOccurrence(true); setFabOpen(false) }}
               title="Lançar Ocorrência (O)"
@@ -3859,23 +3986,22 @@ export default function AnimalDetail() {
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">
                     DECA
                   </label>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {animal.deca || '-'}
+                  <p className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                    <span>{animal.deca || '-'}</span>
+                    {animal.ranking_iabcz && (
+                      <span className="flex items-center gap-1">
+                        {animal.ranking_iabcz === 1 && <span className="text-xl">🥇</span>}
+                        {animal.ranking_iabcz === 2 && <span className="text-xl">🥈</span>}
+                        {animal.ranking_iabcz === 3 && <span className="text-xl">🥉</span>}
+                        {animal.ranking_iabcz > 3 && <span className="text-amber-600">🏆</span>}
+                        <span className="text-xs text-gray-500 dark:text-gray-400">#{animal.ranking_iabcz}</span>
+                      </span>
+                    )}
                   </p>
                 </div>
               </>
             )}
             
-             {/* Tipo Nascimento */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">
-                Tipo Nasc.
-              </label>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {animal.tipo_nascimento || '-'}
-              </p>
-            </div>
-
           </div>
         </CardBody>
         )}
@@ -5049,6 +5175,15 @@ export default function AnimalDetail() {
           </div>
         </div>
       )}
+
+      {/* Modal de Importação Genética (Série, RG, iABCZ, Deca) */}
+      <ImportGeneticaModal
+        isOpen={showImportGenetica}
+        onClose={() => setShowImportGenetica(false)}
+        onSuccess={() => {
+          loadAnimal()
+        }}
+      />
 
       {/* Modal de Importação Excel */}
       <AnimalExcelUpdater

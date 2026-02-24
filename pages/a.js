@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
+import Image from 'next/image'
 import { MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 
 export default function ConsultaRapida() {
@@ -14,8 +15,45 @@ export default function ConsultaRapida() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [touched, setTouched] = useState({ serie: false, rg: false })
+  const [showSplash, setShowSplash] = useState(false)
+  const [splashProgress, setSplashProgress] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
   const serieRef = useRef(null)
   const autoSearchDone = useRef(false)
+
+  // Detectar se é mobile e mostrar splash apenas em mobile (não mostrar quando vier de Nova Consulta)
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      setIsMobile(mobile)
+      // Pular splash quando ?buscar=1 (vindo de Nova Consulta) - ir direto para pesquisar
+      const skipSplash = typeof window !== 'undefined' && window.location.search.includes('buscar=1')
+      setShowSplash(mobile && !skipSplash)
+    }
+    checkMobile()
+  }, [])
+
+  // Splash screen com animação de progresso (apenas mobile)
+  useEffect(() => {
+    if (!showSplash) return
+    
+    const duration = 5000 // 5 segundos
+    const interval = 50 // atualizar a cada 50ms
+    const steps = duration / interval
+    let currentStep = 0
+
+    const timer = setInterval(() => {
+      currentStep++
+      setSplashProgress((currentStep / steps) * 100)
+      
+      if (currentStep >= steps) {
+        clearInterval(timer)
+        setTimeout(() => setShowSplash(false), 300)
+      }
+    }, interval)
+
+    return () => clearInterval(timer)
+  }, [showSplash])
 
   // Auto-buscar se vier pela URL: /a?serie=CJCJ&rg=15563
   useEffect(() => {
@@ -105,14 +143,81 @@ export default function ConsultaRapida() {
         <title>Consulta Animal | Beef-Sync</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
+
+      {/* Splash Screen */}
+      {showSplash && (
+        <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-amber-900 to-gray-900 flex items-center justify-center z-[9999] transition-opacity duration-300">
+          <div className="text-center space-y-8 px-4">
+            {/* Logo da Fazenda com Prancheta */}
+            <div className="relative">
+              <div className="animate-bounce">
+                <div className="w-45 h-40 mx-auto relative rounded-2xl shadow-2xl overflow-hidden bg-white">
+                  <div className="relative w-full h-full">
+                    <Image 
+                      src="/logo-santanna.png.jpg" 
+                      alt="Logo Fazenda Sant'Anna"
+                      fill
+                      className="object-"
+                      style={{ objectPosition: 'center center' }}
+                      priority
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Prancheta/Clipboard animado */}
+              <div 
+                className="absolute -right-14 top-10 text-blue-300"
+                style={{ 
+                  animation: 'float 2s ease-in-out infinite',
+                  transformOrigin: 'center'
+                }}
+              >
+                <svg className="w-20 h-35" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                  <path d="M9 12h6m-6 4h6"/>
+                </svg>
+              </div>
+            </div>
+
+            {/* Texto */}
+            <div className="space-y-3">
+              <h1 className="text-4xl font-bold text-white tracking-tight">
+                Beef-Sync
+              </h1>
+              <p className="text-amber-200 text-lg animate-pulse">
+                Iniciando o sistema...
+              </p>
+            </div>
+
+            {/* Barra de progresso */}
+            <div className="w-64 mx-auto">
+              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-300 ease-out"
+                  style={{ width: `${splashProgress}%` }}
+                />
+              </div>
+              <p className="text-gray-400 text-sm mt-2">
+                {Math.round(splashProgress)}%
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6 bg-gradient-to-br from-gray-50 via-amber-50/30 to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-        <div className="w-full max-w-md">
+        <div className="">
           {/* Logo e Header */}
           <div className="mb-8 text-center animate-fade-in">
-            <div className="inline-flex items-center justify-center w-20 h-20 mb-4 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/30">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+            <div className="inline-flex items-center justify-center w-24 h-24 mb-4 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/30 overflow-hidden p-2">
+              <Image 
+                src="/Host_ico_rede.ico" 
+                alt="Ícone Nelore"
+                width={100}
+                height={58}
+                className="object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 dark:from-amber-500 dark:to-amber-400 bg-clip-text text-transparent mb-2">
               Beef-Sync
@@ -274,6 +379,11 @@ export default function ConsultaRapida() {
           0%, 100% { transform: translateX(0); }
           25% { transform: translateX(-5px); }
           75% { transform: translateX(5px); }
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(-5deg); }
+          50% { transform: translateY(-10px) rotate(5deg); }
         }
 
         .animate-fade-in {

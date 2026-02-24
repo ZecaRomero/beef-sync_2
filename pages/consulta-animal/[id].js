@@ -23,7 +23,9 @@ import {
   DocumentTextIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  ArrowTopRightOnSquareIcon
+  ArrowTopRightOnSquareIcon,
+  TrophyIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline'
 
 function formatDate(d) {
@@ -48,6 +50,7 @@ export default function ConsultaAnimalView() {
     fiv: true, inseminacoes: true, gestacoes: true, exames: true,
     filhos: true, protocolos: false, pesagens: false, localizacoes: false, custos: false
   })
+  const [rankingPosicao, setRankingPosicao] = useState(null) // 1 = primeiro do ranking
   const toggleSecao = useCallback((key) => {
     setSecoesExpandidas(prev => ({ ...prev, [key]: !prev[key] }))
   }, [])
@@ -81,6 +84,22 @@ export default function ConsultaAnimalView() {
       .finally(() => setLoading(false))
   }, [id])
 
+  // Buscar posição no ranking iABCZ quando o animal for carregado
+  useEffect(() => {
+    if (!animal?.id) return
+    fetch('/api/animals/ranking-iabcz?limit=50')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data?.length) {
+          const idx = d.data.findIndex(r =>
+            r.id === animal.id || (String(r.rg) === String(animal.rg) && String(r.serie || '').toUpperCase() === String(animal.serie || '').toUpperCase())
+          )
+          if (idx >= 0) setRankingPosicao(idx + 1)
+        }
+      })
+      .catch(() => {})
+  }, [animal?.id, animal?.rg, animal?.serie])
+
   if (loading) {
     return (
       <>
@@ -106,7 +125,7 @@ export default function ConsultaAnimalView() {
         <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6 bg-gray-50 dark:bg-gray-900">
           <p className="text-red-600 dark:text-red-400 text-center mb-6">{error || 'Animal não encontrado'}</p>
           <Link
-            href="/a"
+            href="/a?buscar=1"
             className="flex items-center gap-2 px-6 py-3 rounded-xl bg-amber-600 text-white font-semibold hover:bg-amber-700"
           >
             <ArrowLeftIcon className="h-5 w-5" />
@@ -210,7 +229,7 @@ export default function ConsultaAnimalView() {
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between max-w-lg mx-auto">
             <Link
-              href="/a"
+              href="/a?buscar=1"
               className="flex items-center gap-2 text-amber-600 dark:text-amber-500 font-semibold"
             >
               <ArrowLeftIcon className="h-5 w-5" />
@@ -221,6 +240,67 @@ export default function ConsultaAnimalView() {
         </div>
 
         <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
+          {/* Destaque: 1º do Ranking iABCZ */}
+          {rankingPosicao === 1 && (
+            <div className="bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 rounded-2xl shadow-xl p-6 text-white border-2 border-amber-300/50 ring-4 ring-amber-400/30">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-white/20 backdrop-blur">
+                  <TrophyIcon className="h-12 w-12 text-amber-100" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold uppercase tracking-wider opacity-90">1º Lugar no Ranking iABCZ</p>
+                  <p className="text-2xl font-bold mt-0.5">Animal mais bem avaliado do rebanho</p>
+                  <p className="text-sm mt-1 opacity-90 flex items-center gap-1">
+                    <SparklesIcon className="h-4 w-4" />
+                    iABCZ: {animal.abczg || '-'} • Quanto maior, melhor a genética
+                  </p>
+                </div>
+                <div className="hidden sm:flex w-16 h-16 rounded-full bg-white/20 items-center justify-center text-3xl font-black">
+                  1º
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Badge posição 2 ou 3 no ranking */}
+          {rankingPosicao === 2 && (
+            <div className="bg-gradient-to-r from-slate-400 to-slate-600 rounded-2xl shadow-lg p-4 text-white">
+              <div className="flex items-center gap-3">
+                <TrophyIcon className="h-10 w-10 text-slate-200" />
+                <div>
+                  <p className="font-bold">2º no Ranking iABCZ</p>
+                  <p className="text-sm opacity-90">Excelente avaliação genética</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {rankingPosicao === 3 && (
+            <div className="bg-gradient-to-r from-amber-700 to-amber-800 rounded-2xl shadow-lg p-4 text-white">
+              <div className="flex items-center gap-3">
+                <TrophyIcon className="h-10 w-10 text-amber-200" />
+                <div>
+                  <p className="font-bold">3º no Ranking iABCZ</p>
+                  <p className="text-sm opacity-90">Ótima avaliação genética</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Badge posições 4º a 10º no ranking */}
+          {rankingPosicao >= 4 && rankingPosicao <= 10 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md p-4 border-2 border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+                  <span className="text-xl font-black text-blue-600 dark:text-blue-400">{rankingPosicao}º</span>
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white">{rankingPosicao}º no Ranking iABCZ</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Top 10 • Boa avaliação genética</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Banner de resumo em uma frase */}
           <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 rounded-2xl shadow-lg p-5 text-white">
             <p className="text-sm font-medium opacity-90 mb-1">Resumo</p>
@@ -243,6 +323,46 @@ export default function ConsultaAnimalView() {
 
           {/* Cards de números rápidos */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {(animal.abczg || animal.abczg === 0) && (
+              <div className={`rounded-xl p-3 border text-center ${
+                rankingPosicao === 1
+                  ? 'bg-gradient-to-br from-amber-100 to-yellow-100 dark:from-amber-900/40 dark:to-yellow-900/40 border-2 border-amber-400 dark:border-amber-500'
+                  : rankingPosicao === 2
+                  ? 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-700/50 border-2 border-slate-400 dark:border-slate-500'
+                  : rankingPosicao === 3
+                  ? 'bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-900/30 dark:to-amber-800/30 border-2 border-amber-600 dark:border-amber-700'
+                  : rankingPosicao && rankingPosicao <= 10
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-300 dark:border-blue-700'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+              }`}>
+                <p className={`text-2xl font-bold ${
+                  rankingPosicao === 1 ? 'text-amber-600 dark:text-amber-400' :
+                  rankingPosicao === 2 ? 'text-slate-600 dark:text-slate-300' :
+                  rankingPosicao === 3 ? 'text-amber-700 dark:text-amber-300' :
+                  rankingPosicao && rankingPosicao <= 10 ? 'text-blue-600 dark:text-blue-400' :
+                  'text-blue-600 dark:text-blue-400'
+                }`}>
+                  {animal.abczg}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">iABCZ</p>
+                {rankingPosicao && rankingPosicao <= 10 && (
+                  <p className={`text-xs font-bold mt-0.5 ${
+                    rankingPosicao === 1 ? 'text-amber-600 dark:text-amber-400' :
+                    rankingPosicao === 2 ? 'text-slate-600 dark:text-slate-400' :
+                    rankingPosicao === 3 ? 'text-amber-700 dark:text-amber-400' :
+                    'text-blue-600 dark:text-blue-400'
+                  }`}>
+                    {rankingPosicao}º ranking
+                  </p>
+                )}
+              </div>
+            )}
+            {(animal.deca || animal.deca === 0) && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 text-center">
+                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{animal.deca}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">DECA</p>
+              </div>
+            )}
             {mesesIdade != null && (
               <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 text-center">
                 <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{mesesIdade}</p>
@@ -345,7 +465,32 @@ export default function ConsultaAnimalView() {
                   <UserIcon className="h-8 w-8 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">{nome}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl font-bold text-gray-900 dark:text-white">{nome}</h1>
+                    {rankingPosicao === 1 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500 text-white text-sm font-bold shadow-lg">
+                        <TrophyIcon className="h-4 w-4" />
+                        1º iABCZ
+                      </span>
+                    )}
+                    {rankingPosicao === 2 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-500 text-white text-sm font-bold shadow-lg">
+                        <TrophyIcon className="h-4 w-4" />
+                        2º iABCZ
+                      </span>
+                    )}
+                    {rankingPosicao === 3 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-700 text-white text-sm font-bold shadow-lg">
+                        <TrophyIcon className="h-4 w-4" />
+                        3º iABCZ
+                      </span>
+                    )}
+                    {rankingPosicao >= 4 && rankingPosicao <= 10 && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-600 text-white text-sm font-bold">
+                        {rankingPosicao}º iABCZ
+                      </span>
+                    )}
+                  </div>
                   <p className="text-amber-600 dark:text-amber-400 font-semibold">
                     {animal.serie || '-'} {animal.rg || ''}
                   </p>
@@ -387,10 +532,54 @@ export default function ConsultaAnimalView() {
                 />
               )}
               <InfoRow label="Peso" value={animal.peso ? `${animal.peso} kg` : null} />
-              <InfoRow label="Data chegada" value={formatDate(animal.data_chegada || animal.dataChegada)} />
+              {animal.sexo && (animal.sexo.toLowerCase().includes('m') || animal.sexo === 'M') && animal.ce && (
+                <InfoRow label="CE (Circunferência Escrotal)" value={`${animal.ce} cm`} />
+              )}
               <InfoRow label="Mãe" value={animal.mae} />
               <InfoRow label="Pai" value={animal.pai} />
               <InfoRow label="Avô materno" value={animal.avo_materno || animal.avoMaterno} />
+              {(animal.abczg || animal.abczg === 0) && (
+                <div className={`px-6 py-3 flex justify-between items-center border-t ${
+                  rankingPosicao === 1 ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/30' :
+                  rankingPosicao === 2 ? 'bg-slate-50/50 dark:bg-slate-900/10 border-slate-200 dark:border-slate-700' :
+                  rankingPosicao === 3 ? 'bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-800/20' :
+                  rankingPosicao && rankingPosicao <= 10 ? 'bg-blue-50/30 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800/30' :
+                  'border-gray-100 dark:border-gray-700'
+                }`}>
+                  <span className={`text-sm font-medium flex items-center gap-1 ${
+                    rankingPosicao === 1 ? 'text-amber-800 dark:text-amber-200' :
+                    rankingPosicao === 2 ? 'text-slate-700 dark:text-slate-300' :
+                    rankingPosicao === 3 ? 'text-amber-800 dark:text-amber-200' :
+                    rankingPosicao && rankingPosicao <= 10 ? 'text-blue-800 dark:text-blue-200' :
+                    'text-gray-600 dark:text-gray-400'
+                  }`}>
+                    <TrophyIcon className="h-4 w-4" />
+                    iABCZ (avaliação genética)
+                  </span>
+                  <span className={`text-lg font-bold ${
+                    rankingPosicao === 1 ? 'text-amber-600 dark:text-amber-400' :
+                    rankingPosicao === 2 ? 'text-slate-600 dark:text-slate-300' :
+                    rankingPosicao === 3 ? 'text-amber-700 dark:text-amber-400' :
+                    rankingPosicao && rankingPosicao <= 10 ? 'text-blue-600 dark:text-blue-400' :
+                    'text-gray-900 dark:text-white'
+                  }`}>
+                    {animal.abczg}
+                    {rankingPosicao && rankingPosicao <= 10 && (
+                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${
+                        rankingPosicao === 1 ? 'bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100' :
+                        rankingPosicao === 2 ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100' :
+                        rankingPosicao === 3 ? 'bg-amber-300 dark:bg-amber-800 text-amber-900 dark:text-amber-100' :
+                        'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100'
+                      }`}>
+                        {rankingPosicao}º ranking
+                      </span>
+                    )}
+                  </span>
+                </div>
+              )}
+              {(animal.deca || animal.deca === 0) && (
+                <InfoRow label="DECA" value={animal.deca} />
+              )}
               <InfoRow label="Brinco" value={animal.brinco} />
               <InfoRow label="Tatuagem" value={animal.tatuagem} />
               {(animal.valor_venda || animal.valorVenda) && (
@@ -938,7 +1127,7 @@ export default function ConsultaAnimalView() {
         {/* Botão fixo inferior */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
           <Link
-            href="/a"
+            href="/a?buscar=1"
             className="flex items-center justify-center gap-2 w-full max-w-lg mx-auto py-4 rounded-xl bg-amber-600 text-white font-semibold text-lg hover:bg-amber-700"
           >
             <ArrowLeftIcon className="h-6 w-6" />
