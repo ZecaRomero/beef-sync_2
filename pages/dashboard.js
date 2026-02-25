@@ -346,6 +346,7 @@ const LastAnimalWidget = () => {
 }
 
 export default function Dashboard() {
+  const router = useRouter()
   const [stats, setStats] = useState({
     totalAnimals: 0,
     activeAnimals: 0,
@@ -355,6 +356,17 @@ export default function Dashboard() {
   const [showInteractive, setShowInteractive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
+  // Redirecionar para mobile se acessar do celular
+  useEffect(() => {
+    const isMobileUA = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const isSmallScreen = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches
+    const isMobile = isMobileUA || isSmallScreen
+    
+    if (isMobile) {
+      router.replace('/a')
+    }
+  }, [router])
 
   // Carregar estatísticas do sistema
   useEffect(() => {
