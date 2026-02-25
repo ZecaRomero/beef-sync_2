@@ -285,19 +285,22 @@ const ModernSidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onToggleCo
       {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 xl:hidden transition-opacity duration-300"
           onClick={onClose}
         />
       )}
 
       {/* Sidebar */}
-      <div className={cn(
-        'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out',
-        'bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700',
-        'shadow-xl lg:shadow-lg',
-        isCollapsed ? 'w-16' : 'w-64',
-        isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-      )}>
+      <div
+        data-sidebar="main"
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out',
+          'bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700',
+          'shadow-xl xl:shadow-lg',
+          isCollapsed ? 'w-16' : 'w-64',
+          isOpen ? 'translate-x-0 sidebar-open' : '-translate-x-full xl:translate-x-0'
+        )}
+      >
         {/* Header */}
         <div className={cn(
           'flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700',
@@ -319,7 +322,7 @@ const ModernSidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onToggleCo
             onClick={onToggleCollapse}
             className={cn(
               'p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors duration-200',
-              'hidden lg:flex items-center justify-center'
+              'hidden xl:flex items-center justify-center'
             )}
           >
             {isCollapsed ? (
@@ -332,7 +335,7 @@ const ModernSidebar: React.FC<SidebarProps> = ({ isOpen, isCollapsed, onToggleCo
           {/* Mobile close button */}
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors duration-200 lg:hidden"
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors duration-200 xl:hidden"
           >
             <ChevronLeftIcon className="w-4 h-4" />
           </button>

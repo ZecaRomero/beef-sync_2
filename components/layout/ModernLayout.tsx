@@ -19,7 +19,7 @@ const ModernLayout: React.FC<LayoutProps> = ({ children, darkMode, toggleDarkMod
     if (typeof window === 'undefined') return;
     
     const handleClickOutside = () => {
-      if (sidebarOpen && window.innerWidth < 1024) {
+      if (sidebarOpen && window.innerWidth < 1280) {
         setSidebarOpen(false)
       }
     }
@@ -33,7 +33,7 @@ const ModernLayout: React.FC<LayoutProps> = ({ children, darkMode, toggleDarkMod
     if (typeof window === 'undefined') return;
     
     const handleResize = () => {
-      if (window.innerWidth >= 1024) {
+      if (window.innerWidth >= 1280) {
         setSidebarOpen(false)
       }
     }
@@ -55,7 +55,7 @@ const ModernLayout: React.FC<LayoutProps> = ({ children, darkMode, toggleDarkMod
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 xl:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -63,7 +63,7 @@ const ModernLayout: React.FC<LayoutProps> = ({ children, darkMode, toggleDarkMod
       {/* Main content */}
       <div className={cn(
         'flex-1 flex flex-col transition-all duration-300',
-        sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
+        sidebarCollapsed ? 'xl:ml-16' : 'xl:ml-64'
       )}>
         <TabsProvider>
           <ModernHeader 

@@ -3,6 +3,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Layout mobile - sidebar oculta em telas < 1280px (fallback para viewport) */
+@media (max-width: 1279px) {
+  [data-sidebar="main"] {
+    transform: translateX(-100%) !important;
+  }
+  [data-sidebar="main"].sidebar-open {
+    transform: translateX(0) !important;
+  }
+}
+
 /* Importar nossos arquivos CSS customizados */
 @import './design-system.css';
 @import './animations.css';
