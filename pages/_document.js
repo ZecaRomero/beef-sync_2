@@ -13,6 +13,9 @@ export default function Document() {
         <link rel="icon" type="image/x-icon" sizes="16x16" href="/Host_ico_rede.ico" />
         <link rel="icon" type="image/x-icon" sizes="32x32" href="/Host_ico_rede.ico" />
         
+        {/* Viewport - essencial para layout mobile */}
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+        
         {/* Meta tags */}
         <meta name="description" content="Beef-Sync - Sistema de Gestão Pecuária" />
         <meta name="keywords" content="pecuária, gestão, bovinos, rebanho, beef sync" />
