@@ -71,8 +71,51 @@ async function handleGet(req, res) {
     
     const result = await query(sql, params)
     
+    // Buscar feedbacks pendentes
+    let feedbacks = []
+    try {
+      const feedbacksResult = await query(`
+        SELECT id, nome, sugestao, audio_path, created_at
+        FROM feedbacks
+        WHERE status = 'pendente'
+        ORDER BY created_at DESC
+        LIMIT 10
+      `)
+      
+      feedbacks = feedbacksResult.rows.map(f => ({
+        id: `feedback_${f.id}`,
+        tipo: 'feedback',
+        titulo: `💬 Novo feedback de ${f.nome}`,
+        mensagem: f.sugestao ? f.sugestao.substring(0, 100) + (f.sugestao.length > 100 ? '...' : '') : 'Feedback com áudio',
+        prioridade: 'high',
+        lida: false,
+        created_at: f.created_at,
+        dados_extras: { feedback_id: f.id, tem_audio: !!f.audio_path },
+        icon: '💬',
+        color_class: 'bg-blue-500'
+      }))
+    } catch (e) {
+      // Tabela feedbacks não existe ainda
+    }
+    
+    // Combinar notificações normais com feedbacks
+    const allNotifications = [...feedbacks, ...result.rows]
+    
+    // Ordenar por prioridade e data
+    allNotifications.sort((a, b) => {
+      const prioridadeOrder = { high: 3, medium: 2, low: 1 }
+      const prioA = prioridadeOrder[a.prioridade] || 0
+      const prioB = prioridadeOrder[b.prioridade] || 0
+      
+      if (prioA !== prioB) return prioB - prioA
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
+    
+    // Limitar total
+    const limitedNotifications = allNotifications.slice(0, parseInt(limit))
+    
     // Formatar timestamps para exibição
-    const notifications = result.rows.map(notif => ({
+    const notifications = limitedNotifications.map(notif => ({
       ...notif,
       tempo_relativo: getRelativeTime(notif.created_at),
       timestamp: new Date(notif.created_at).toLocaleString('pt-BR')
@@ -162,6 +205,12 @@ async function handlePut(req, res) {
       return res.status(400).json({ message: 'ID da notificação é obrigatório' })
     }
 
+    // Notificações de feedback são virtuais (não estão na tabela notificacoes)
+    // Retornar sucesso sem atualizar para evitar erro 500
+    if (String(id).startsWith('feedback_')) {
+      return res.status(200).json({ id, lida: true, message: 'Feedback marcado como visualizado' })
+    }
+
     let sql = 'UPDATE notificacoes SET updated_at = CURRENT_TIMESTAMP'
     const params = []
     let paramCount = 0
@@ -209,6 +258,20 @@ async function handleDelete(req, res) {
 
     if (!id) {
       return res.status(400).json({ message: 'ID da notificação é obrigatório' })
+    }
+
+    // Notificações de feedback: atualizar status para não aparecer mais na lista
+    if (String(id).startsWith('feedback_')) {
+      const feedbackId = id.replace('feedback_', '')
+      try {
+        await query(
+          `UPDATE feedbacks SET status = 'em_analise' WHERE id = $1`,
+          [feedbackId]
+        )
+      } catch (e) {
+        // Tabela pode não existir
+      }
+      return res.status(200).json({ message: 'Notificação removida com sucesso' })
     }
 
     const result = await query(

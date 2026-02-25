@@ -21,11 +21,15 @@ import {
   UserGroupIcon,
   ClockIcon,
   DocumentTextIcon,
+  ChartBarIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ArrowTopRightOnSquareIcon,
   TrophyIcon,
-  SparklesIcon
+  SparklesIcon,
+  MoonIcon,
+  SunIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 
 function formatDate(d) {
@@ -34,26 +38,84 @@ function formatDate(d) {
   return isNaN(dt.getTime()) ? '-' : dt.toLocaleDateString('pt-BR')
 }
 
+function calcularMesesIdade(dataNascimento, mesesCampo) {
+  if (mesesCampo != null && !isNaN(parseInt(mesesCampo))) return parseInt(mesesCampo)
+  if (!dataNascimento) return null
+  const dt = new Date(dataNascimento)
+  if (isNaN(dt.getTime())) return null
+  return Math.floor((new Date() - dt) / (1000 * 60 * 60 * 24 * 30.44))
+}
+
 function formatCurrency(v) {
   if (v == null || v === '') return '-'
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(v))
 }
 
-export default function ConsultaAnimalView() {
+// Filtrar nomes de touros que aparecem como localização (C2747 DA S.NICE, NACION 15397, etc.)
+function localizacaoValidaParaExibir(loc) {
+  if (!loc || typeof loc !== 'string') return null
+  const n = loc.trim()
+  if (!n || /^(VAZIO|NÃO INFORMADO|NAO INFORMADO|-)$/i.test(n)) return null
+  if (/^PIQUETE\s+(\d+|CABANHA|CONF|GUARITA|PISTA)$/i.test(n)) return loc
+  if (/^PROJETO\s+[\dA-Za-z\-/]+$/i.test(n)) return loc
+  if (/^CONFINA$/i.test(n)) return loc
+  if (/^PIQ\s+\d+$/i.test(n)) return loc.replace(/^PIQ\s+/i, 'PIQUETE ')
+  // Abreviações comuns de importação: CABANHA, GUARITA, PISTA, CONF
+  if (/^(CABANHA|GUARITA|PISTA|CONF)$/i.test(n)) return loc
+  return null // Nome de touro ou inválido
+}
+
+export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode }) {
   const router = useRouter()
   const { id } = router.query
   const [animal, setAnimal] = useState(null)
   const [examesAndrologicos, setExamesAndrologicos] = useState([])
+  const [ocorrencias, setOcorrencias] = useState([])
+  const [transferencias, setTransferencias] = useState([])
+  const [ultimoCE, setUltimoCE] = useState(null)
+  const [ultimaIA, setUltimaIA] = useState(null)
+  const [previsaoPartoIA, setPrevisaoPartoIA] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [secoesExpandidas, setSecoesExpandidas] = useState({
     fiv: true, inseminacoes: true, gestacoes: true, exames: true,
-    filhos: true, protocolos: false, pesagens: false, localizacoes: false, custos: false
+    filhos: true, protocolos: true, pesagens: true, localizacoes: true, custos: true,
+    ocorrencias: true, transferencias: true
   })
   const [rankingPosicao, setRankingPosicao] = useState(null) // 1 = primeiro do ranking
+  const [filhoTopRanking, setFilhoTopRanking] = useState(null) // { serie, rg, nome } quando esta fêmea é mãe do 1º do ranking
+  const [showIABCZInfo, setShowIABCZInfo] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const toggleSecao = useCallback((key) => {
     setSecoesExpandidas(prev => ({ ...prev, [key]: !prev[key] }))
   }, [])
+  const handleCopyIdent = useCallback(() => {
+    const t = `${animal.serie || ''} ${animal.rg || ''}`.trim()
+    if (!t) return
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(t).then(() => {
+        alert('Identificação copiada')
+      }).catch(() => {})
+    }
+  }, [animal?.serie, animal?.rg])
+  const handleWhatsAppShare = useCallback(() => {
+    const locAtiva = animal.localizacoes?.find(l => !l.data_saida)
+    const locMaisRecente = animal.localizacoes?.[0]
+    const locBruto = locAtiva?.piquete || locMaisRecente?.piquete || animal.piquete_atual || animal.piqueteAtual || animal.localizacao_atual
+    const locFiltrada = localizacaoValidaParaExibir(locBruto) || (locBruto ? 'Não informado' : null)
+    const texto = [
+      `Animal: ${animal.nome || `${animal.serie || ''} ${animal.rg || ''}`.trim() || '-'}`,
+      `Identificação: ${animal.serie || '-'} ${animal.rg || '-'}`,
+      animal.sexo ? `Sexo: ${animal.sexo}` : null,
+      animal.raca ? `Raça: ${animal.raca}` : null,
+      (animal.data_nascimento ? `Idade: ${Math.floor((new Date() - new Date(animal.data_nascimento)) / (1000 * 60 * 60 * 24 * 30.44))} meses` : null),
+      animal.peso ? `Peso: ${animal.peso} kg` : null,
+      (animal.abczg || animal.abczg === 0) ? `iABCZ: ${animal.abczg}${filhoTopRanking ? ' • Mãe do 1º do ranking' : rankingPosicao ? ` • ${rankingPosicao}º no ranking` : ''}` : null,
+      locFiltrada ? `Localização: ${locFiltrada}` : null
+    ].filter(Boolean).join('\n')
+    const url = `https://wa.me/?text=${encodeURIComponent(texto)}`
+    window.open(url, '_blank')
+  }, [animal, rankingPosicao, filhoTopRanking])
 
   useEffect(() => {
     if (!id) return
@@ -84,21 +146,128 @@ export default function ConsultaAnimalView() {
       .finally(() => setLoading(false))
   }, [id])
 
-  // Buscar posição no ranking iABCZ quando o animal for carregado
+  // Buscar posição no ranking iABCZ e verificar se é mãe do 1º do ranking
   useEffect(() => {
     if (!animal?.id) return
+    setFilhoTopRanking(null)
     fetch('/api/animals/ranking-iabcz?limit=50')
       .then(r => r.json())
       .then(d => {
         if (d.success && d.data?.length) {
-          const idx = d.data.findIndex(r =>
+          const ranking = d.data
+          const primeiroRanking = ranking[0]
+          const idx = ranking.findIndex(r =>
             r.id === animal.id || (String(r.rg) === String(animal.rg) && String(r.serie || '').toUpperCase() === String(animal.serie || '').toUpperCase())
           )
           if (idx >= 0) setRankingPosicao(idx + 1)
+          // Verificar se esta fêmea é mãe do 1º do ranking (filho mais bem avaliado)
+          const filhos = animal.filhos || []
+          const filhoEhPrimeiro = filhos.some(f =>
+            f.id === primeiroRanking?.id ||
+            (String(f.rg) === String(primeiroRanking?.rg) && String(f.serie || '').toUpperCase() === String(primeiroRanking?.serie || '').toUpperCase())
+          )
+          if (filhoEhPrimeiro && primeiroRanking) {
+            setFilhoTopRanking({
+              serie: primeiroRanking.serie,
+              rg: primeiroRanking.rg,
+              nome: primeiroRanking.nome
+            })
+          }
         }
       })
       .catch(() => {})
-  }, [animal?.id, animal?.rg, animal?.serie])
+  }, [animal?.id, animal?.rg, animal?.serie, animal?.filhos])
+
+  // Buscar C.E - prioridade: pesagens > ocorrências > exames andrológicos
+  useEffect(() => {
+    if (!animal?.id) return
+    const isMacho = animal.sexo && (String(animal.sexo).toLowerCase().includes('macho') || animal.sexo === 'M')
+    if (!isMacho) return
+
+    // 1. CE das pesagens (mais recente com CE) - já vem no animal
+    const pesagensComCE = (animal.pesagens || [])
+      .filter(p => p.ce != null && parseFloat(p.ce) > 0)
+      .sort((a, b) => new Date(b.data) - new Date(a.data))
+    if (pesagensComCE.length > 0) {
+      setUltimoCE(pesagensComCE[0].ce)
+      return
+    }
+
+    // 2. CE das ocorrências
+    fetch(`/api/animals/ocorrencias?animalId=${animal.id}`)
+      .then(r => r.json())
+      .then(data => {
+        const occ = data.ocorrencias || data.data || data || []
+        const ocorrenciasComCE = occ
+          .filter(o => o.ce && parseFloat(o.ce) > 0)
+          .sort((a, b) => new Date(b.data || b.data_registro) - new Date(a.data || a.data_registro))
+        if (ocorrenciasComCE.length > 0) {
+          setUltimoCE(ocorrenciasComCE[0].ce)
+        }
+      })
+      .catch(() => {})
+  }, [animal?.id, animal?.sexo, animal?.pesagens])
+
+  // CE do exame andrológico (quando não veio de pesagens/ocorrências)
+  useEffect(() => {
+    if (!animal?.id || ultimoCE) return
+    const isMacho = animal.sexo && (String(animal.sexo).toLowerCase().includes('macho') || animal.sexo === 'M')
+    if (!isMacho || examesAndrologicos.length === 0) return
+    const ex = examesAndrologicos.find(e => e.ce != null && parseFloat(e.ce) > 0)
+    if (ex) setUltimoCE(ex.ce)
+  }, [animal?.id, animal?.sexo, examesAndrologicos, ultimoCE])
+
+  // Buscar última IA e calcular previsão de parto para fêmeas
+  useEffect(() => {
+    if (!animal?.id) return
+    const isFemea = animal.sexo && (String(animal.sexo).toLowerCase().includes('f') || animal.sexo === 'F' || String(animal.sexo).toLowerCase().includes('femea'))
+    if (!isFemea) return
+
+    fetch(`/api/inseminacoes?animal_id=${animal.id}`)
+      .then(r => r.json())
+      .then(data => {
+        const inseminacoes = data.data || data || []
+        if (inseminacoes.length > 0) {
+          // Ordenar por data mais recente
+          const ordenadas = inseminacoes.sort((a, b) => 
+            new Date(b.data_inseminacao || b.data || 0) - new Date(a.data_inseminacao || a.data || 0)
+          )
+          const ultima = ordenadas[0]
+          setUltimaIA(ultima)
+          
+          // Calcular previsão de parto (9 meses = 270 dias após IA)
+          const dataIA = new Date(ultima.data_inseminacao || ultima.data)
+          const previsao = new Date(dataIA)
+          previsao.setDate(previsao.getDate() + 270)
+          setPrevisaoPartoIA(previsao)
+        }
+      })
+      .catch(() => {})
+  }, [animal?.id, animal?.sexo])
+
+  // Buscar ocorrências (histórico de serviços, vacinas, etc.)
+  useEffect(() => {
+    if (!animal?.id) return
+    fetch(`/api/animals/ocorrencias?animalId=${animal.id}&limit=20`)
+      .then(r => r.json())
+      .then(data => {
+        const occ = data.ocorrencias || data.data || data || []
+        setOcorrencias(Array.isArray(occ) ? occ : [])
+      })
+      .catch(() => setOcorrencias([]))
+  }, [animal?.id])
+
+  // Buscar transferências de embriões (receptoras)
+  useEffect(() => {
+    if (!animal?.id) return
+    fetch(`/api/transferencias-embrioes?receptora_id=${animal.id}`)
+      .then(r => r.json())
+      .then(data => {
+        const te = data.data || data.transferencias || data || []
+        setTransferencias(Array.isArray(te) ? te : [])
+      })
+      .catch(() => setTransferencias([]))
+  }, [animal?.id])
 
   if (loading) {
     return (
@@ -148,6 +317,15 @@ export default function ConsultaAnimalView() {
   // Idade em meses e anos
   const mesesIdade = animal.data_nascimento ? Math.floor((new Date() - new Date(animal.data_nascimento)) / (1000 * 60 * 60 * 24 * 30.44)) : null
   const anosIdade = mesesIdade != null ? (mesesIdade / 12).toFixed(1) : null
+  
+  // Calcular dias adicionais além dos meses completos
+  const diasAdicionais = animal.data_nascimento ? (() => {
+    const dataNasc = new Date(animal.data_nascimento)
+    const hoje = new Date()
+    const totalDias = Math.floor((hoje - dataNasc) / (1000 * 60 * 60 * 24))
+    const diasEmMeses = Math.floor(mesesIdade * 30.44)
+    return totalDias - diasEmMeses
+  })() : null
 
   // Dias na fazenda
   const dataChegada = animal.data_chegada || animal.dataChegada
@@ -174,7 +352,8 @@ export default function ConsultaAnimalView() {
     ? (totalOocitos / animal.fivs.length).toFixed(1)
     : null
 
-  // Fêmea apta? (15+ meses, não prenha)
+  // Macho ou Fêmea
+  const isMacho = animal.sexo && (String(animal.sexo).toLowerCase().includes('macho') || animal.sexo === 'M')
   const isFemea = animal.sexo && (String(animal.sexo).toLowerCase().includes('fêmea') || String(animal.sexo).toLowerCase().includes('femea') || animal.sexo === 'F')
   const aptaReproducao = isFemea && mesesIdade >= 15 && !isPrenha && !(animal.data_te || animal.dataTE)
 
@@ -204,19 +383,120 @@ export default function ConsultaAnimalView() {
   const eventos = []
   animal.inseminacoes?.slice(0, 3).forEach(ia => eventos.push({ data: ia.data_ia || ia.data, tipo: 'IA', label: `Inseminação - ${ia.touro_nome || ia.touro}` }))
   animal.fivs?.slice(0, 2).forEach(f => eventos.push({ data: f.data_fiv, tipo: 'FIV', label: `Coleta - ${f.quantidade_oocitos} oócitos` }))
-  animal.pesagens?.slice(0, 2).forEach(p => eventos.push({ data: p.data, tipo: 'Peso', label: `${p.peso} kg` }))
+  animal.pesagens?.slice(0, 2).forEach(p => {
+    const label = p.ce ? `${p.peso} kg • CE ${p.ce} cm` : `${p.peso} kg`
+    eventos.push({ data: p.data, tipo: 'Peso', label })
+  })
   examesAndrologicos.slice(0, 2).forEach(ex => eventos.push({ data: ex.data_exame, tipo: 'Andrológico', label: ex.resultado }))
   const timeline = eventos
     .filter(e => e.data)
     .sort((a, b) => new Date(b.data) - new Date(a.data))
     .slice(0, 8)
 
-  // Localização atual: priorizar histórico (localizacoes_animais) onde data_saida IS NULL
-  const locAtual = animal.localizacoes?.find(l => !l.data_saida)?.piquete
+  // Localização atual: priorizar histórico onde data_saida IS NULL; fallback para mais recente e campos do animal
+  const locAtiva = animal.localizacoes?.find(l => !l.data_saida)
+  const locMaisRecente = animal.localizacoes?.[0]
+  const locBruto = locAtiva?.piquete
+    || locMaisRecente?.piquete
     || animal.piquete_atual
     || animal.piqueteAtual
+    || animal.pasto_atual
+    || animal.pastoAtual
     || (typeof animal.localizacao_atual === 'object' ? animal.localizacao_atual?.piquete : null)
     || animal.localizacao_atual
+  const locAtual = localizacaoValidaParaExibir(locBruto) || (locBruto ? 'Não informado' : null)
+  const resumoChips = [
+    animal.situacao,
+    animal.sexo,
+    animal.raca,
+    animal.pelagem,
+    animal.categoria,
+    mesesIdade != null ? `${mesesIdade}m` : null,
+    animal.peso ? `${animal.peso}kg` : null,
+    locAtual ? `📍 ${locAtual}` : null,
+    animal.brinco ? `🏷️ ${animal.brinco}` : null
+  ].filter(Boolean)
+  const quicks = [
+    mesesIdade != null ? { k: 'Idade', v: `${mesesIdade}m` } : null,
+    animal.peso ? { k: 'Peso', v: `${animal.peso}kg` } : null,
+    isPrenha && diasParaParto != null ? { k: 'Parto', v: `${diasParaParto}d` } : null,
+    ultimoCE && isMacho ? { k: 'CE', v: `${ultimoCE}cm` } : null,
+    custoTotal > 0 ? { k: 'Custos', v: formatCurrency(custoTotal) } : null,
+    filhoTopRanking ? { k: 'Ranking', v: 'Mãe do 1º' } : rankingPosicao ? { k: 'Ranking', v: `${rankingPosicao}º` } : null
+  ].filter(Boolean)
+  const gestacaoProgress = diasGestacao != null ? Math.min(100, Math.max(0, Math.round((diasGestacao / 285) * 100))) : null
+  const exameProgress = diasParaProximoExame != null ? Math.min(100, Math.max(0, Math.round(((30 - Math.max(0, diasParaProximoExame)) / 30) * 100))) : null
+
+  const handleShareSummary = async () => {
+    try {
+      setSharing(true)
+      const texto = [
+        `🐂 FICHA DO ANIMAL - ${nome}`,
+        ``,
+        `📋 IDENTIFICAÇÃO`,
+        `Série/RG: ${animal.serie || '-'} ${animal.rg || '-'}`,
+        animal.brinco ? `Brinco: ${animal.brinco}` : null,
+        animal.tatuagem ? `Tatuagem: ${animal.tatuagem}` : null,
+        ``,
+        `📊 DADOS GERAIS`,
+        animal.sexo ? `Sexo: ${animal.sexo}` : null,
+        animal.raca ? `Raça: ${animal.raca}` : null,
+        animal.pelagem ? `Pelagem: ${animal.pelagem}` : null,
+        mesesIdade != null ? `Idade: ${mesesIdade} meses${anosIdade ? ` (${anosIdade} anos)` : ''}` : null,
+        animal.peso ? `Peso: ${animal.peso} kg` : null,
+        evolucaoPeso != null ? `Evolução de peso: ${parseFloat(evolucaoPeso) >= 0 ? '+' : ''}${evolucaoPeso} kg` : null,
+        ``,
+        `🏆 AVALIAÇÃO GENÉTICA`,
+        (animal.abczg || animal.abczg === 0) ? `iABCZ: ${animal.abczg}${filhoTopRanking ? ' • Mãe do 1º do ranking' : rankingPosicao ? ` • ${rankingPosicao}º no ranking` : ''}` : null,
+        (animal.deca || animal.deca === 0) ? `DECA: ${animal.deca}` : null,
+        ``,
+        `📍 LOCALIZAÇÃO`,
+        locAtual ? `Atual: ${locAtual}` : null,
+        diasNaFazenda != null && diasNaFazenda > 0 ? `Tempo na fazenda: ${diasNaFazenda} dias` : null,
+        ``,
+        `👨‍👩‍👧 GENEALOGIA`,
+        animal.mae ? `Mãe: ${animal.mae}` : null,
+        animal.pai ? `Pai: ${animal.pai}` : null,
+        animal.avo_materno || animal.avoMaterno ? `Avô materno: ${animal.avo_materno || animal.avoMaterno}` : null,
+        ``,
+        isMacho && ultimoCE ? `🔬 C.E: ${ultimoCE} cm` : null,
+        isMacho && ultExame ? `Exame andrológico: ${ultExame.resultado}${diasDesdeExame != null ? ` (há ${diasDesdeExame} dias)` : ''}` : null,
+        ``,
+        isFemea && isPrenha && previsaoParto ? `🤰 GESTAÇÃO` : null,
+        isFemea && isPrenha && diasGestacao != null ? `Dias de gestação: ${diasGestacao}` : null,
+        isFemea && isPrenha && previsaoParto ? `Previsão de parto: ${previsaoParto.toLocaleDateString('pt-BR')} (${diasParaParto} dias)` : null,
+        ``,
+        isFemea && animal.inseminacoes?.length > 0 ? `💉 REPRODUÇÃO` : null,
+        isFemea && animal.inseminacoes?.length > 0 ? `Inseminações: ${animal.inseminacoes.length}` : null,
+        isFemea && taxaSucessoIA != null ? `Taxa de prenhez: ${taxaSucessoIA}%` : null,
+        isFemea && animal.fivs?.length > 0 ? `Coletas FIV: ${animal.fivs.length} (${totalOocitos} oócitos)` : null,
+        ``,
+        animal.filhos?.length > 0 ? `👶 Crias: ${animal.filhos.length}` : null,
+        ``,
+        animal.pesagens?.length > 0 ? `⚖️ Pesagens: ${animal.pesagens.length}` : null,
+        animal.protocolos?.length > 0 ? `💊 Protocolos sanitários: ${animal.protocolos.length}` : null,
+        ``,
+        custoTotal > 0 ? `💰 CUSTOS` : null,
+        custoTotal > 0 ? `Total: ${formatCurrency(custoTotal)} (${custosArray.length} lançamentos)` : null,
+        ``,
+        animal.observacoes ? `📝 Observações: ${animal.observacoes}` : null
+      ].filter(Boolean).join('\n')
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Ficha do Animal - Beef-Sync',
+          text: texto
+        })
+      } else {
+        await navigator.clipboard.writeText(texto)
+        alert('Resumo completo copiado para a área de transferência')
+      }
+    } catch (e) {
+      alert('Não foi possível compartilhar agora')
+    } finally {
+      setSharing(false)
+    }
+  }
+  
 
   return (
     <>
@@ -226,7 +506,7 @@ export default function ConsultaAnimalView() {
       </Head>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-24">
         {/* Header fixo */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800/95 border-b border-gray-200 dark:border-gray-700 px-4 py-3 backdrop-blur-sm">
           <div className="flex items-center justify-between max-w-lg mx-auto">
             <Link
               href="/a?buscar=1"
@@ -235,24 +515,97 @@ export default function ConsultaAnimalView() {
               <ArrowLeftIcon className="h-5 w-5" />
               Voltar
             </Link>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Modo consulta</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => toggleDarkMode?.()}
+                className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                title={darkMode ? 'Modo claro' : 'Modo escuro'}
+              >
+                {darkMode ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
+              </button>
+              <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">Modo consulta</span>
+            </div>
           </div>
         </div>
+        <div className="sticky top-12 z-10 bg-white/90 dark:bg-gray-800/90 border-b border-gray-200 dark:border-gray-700 px-4 py-2 backdrop-blur-sm">
+          <div className="max-w-lg mx-auto flex flex-wrap gap-2">
+            {resumoChips.slice(0, 3).map((c, i) => (
+              <span key={i} className="px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+                {c}
+              </span>
+            ))}
+            {(animal.abczg || animal.abczg === 0) && (
+              <button
+                type="button"
+                onClick={() => setShowIABCZInfo(true)}
+                className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                  rankingPosicao === 1
+                    ? 'bg-amber-100 border-amber-400 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-200'
+                    : rankingPosicao && rankingPosicao <= 10
+                    ? 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-200'
+                    : 'bg-white border-gray-300 text-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200'
+                }`}
+              >
+                iABCZ {animal.abczg}{filhoTopRanking ? ' • Mãe do 1º' : rankingPosicao ? ` • ${rankingPosicao}º` : ''}
+              </button>
+            )}
+          </div>
+        </div>
+        {quicks.length > 0 && (
+          <div className="px-4 py-2 bg-white/80 dark:bg-gray-800/80 border-b border-gray-200 dark:border-gray-700">
+            <div className="max-w-lg mx-auto overflow-x-auto">
+              <div className="flex items-center gap-2 w-max">
+                {quicks.slice(0, 4).map((q, i) => (
+                  <span key={i} className="px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
+                    {q.k}: {q.v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="max-w-lg mx-auto px-4 py-6 space-y-6">
-          {/* Destaque: 1º do Ranking iABCZ */}
-          {rankingPosicao === 1 && (
+          {/* Destaque: Mãe do animal mais bem avaliado do PMGZ */}
+          {filhoTopRanking && (
+            <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 rounded-2xl shadow-xl p-6 text-white border-2 border-emerald-400/50 ring-4 ring-emerald-400/30">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-2xl bg-white/20 backdrop-blur">
+                  <UserGroupIcon className="h-12 w-12 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold tracking-wider opacity-90">MÃE DO ANIMAL MAIS BEM AVALIADO</p>
+                  <p className="text-2xl font-bold mt-0.5">Filho(a) em 1º lugar no Ranking iABCZ do PMGZ</p>
+                  <p className="text-sm mt-1 opacity-90 flex items-center gap-1">
+                    <SparklesIcon className="h-4 w-4" />
+                    Filho(a): {filhoTopRanking.serie} {filhoTopRanking.rg}
+                    {filhoTopRanking.nome && ` • ${filhoTopRanking.nome}`}
+                  </p>
+                </div>
+                <Link
+                  href={`/consulta-animal/${filhoTopRanking.serie}-${filhoTopRanking.rg}`}
+                  className="hidden sm:flex w-16 h-16 rounded-full bg-white/20 items-center justify-center text-2xl font-black hover:bg-white/30 transition-colors"
+                >
+                  🏆
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Destaque: 1º do Ranking iABCZ (apenas quando o próprio animal é o 1º, não a mãe dele) */}
+          {rankingPosicao === 1 && !filhoTopRanking && (
             <div className="bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 rounded-2xl shadow-xl p-6 text-white border-2 border-amber-300/50 ring-4 ring-amber-400/30">
               <div className="flex items-center gap-4">
                 <div className="p-3 rounded-2xl bg-white/20 backdrop-blur">
                   <TrophyIcon className="h-12 w-12 text-amber-100" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold uppercase tracking-wider opacity-90">1º Lugar no Ranking iABCZ</p>
+                  <p className="text-sm font-semibold tracking-wider opacity-90">1º LUGAR NO RANKING === iABCZ</p>
                   <p className="text-2xl font-bold mt-0.5">Animal mais bem avaliado do rebanho</p>
                   <p className="text-sm mt-1 opacity-90 flex items-center gap-1">
                     <SparklesIcon className="h-4 w-4" />
-                    iABCZ: {animal.abczg || '-'} • Quanto maior, melhor a genética
+                    iABCZ: {animal.abczg || '-'} • Animal Bem Avaliado(a) no Ranking iABCZ
                   </p>
                 </div>
                 <div className="hidden sm:flex w-16 h-16 rounded-full bg-white/20 items-center justify-center text-3xl font-black">
@@ -301,31 +654,15 @@ export default function ConsultaAnimalView() {
             </div>
           )}
 
-          {/* Banner de resumo em uma frase */}
-          <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 rounded-2xl shadow-lg p-5 text-white">
-            <p className="text-sm font-medium opacity-90 mb-1">Resumo</p>
-            <p className="text-base font-semibold leading-snug">
-              {[
-                animal.raca || 'Animal',
-                mesesIdade != null && ` ${mesesIdade} meses`,
-                locAtual && ` • ${locAtual}`,
-                isPrenha && ' • Prenha',
-                diasParaParto != null && diasParaParto < 90 && ` • Parto em ${diasParaParto} dias`,
-                aptaReproducao && ' • Apta reprodução',
-                animal.filhos?.length > 0 && ` • ${animal.filhos.length} cria(s)`,
-                isInapto && ' • Inapto',
-                isInapto && diasParaProximoExame != null && diasParaProximoExame > 0 && ` • Próx. exame em ${diasParaProximoExame} dias`,
-                isInapto && diasParaProximoExame != null && diasParaProximoExame <= 0 && ' • Exame vencido - reagendar',
-                ultExame && String(ultExame.resultado || '').toUpperCase().includes('APTO') && ' • Apto'
-              ].filter(Boolean).join('')}
-            </p>
-          </div>
+         
 
           {/* Cards de números rápidos */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {(animal.abczg || animal.abczg === 0) && (
               <div className={`rounded-xl p-3 border text-center ${
-                rankingPosicao === 1
+                filhoTopRanking
+                  ? 'bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/40 dark:to-teal-900/40 border-2 border-emerald-400 dark:border-emerald-500'
+                  : rankingPosicao === 1
                   ? 'bg-gradient-to-br from-amber-100 to-yellow-100 dark:from-amber-900/40 dark:to-yellow-900/40 border-2 border-amber-400 dark:border-amber-500'
                   : rankingPosicao === 2
                   ? 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800/50 dark:to-slate-700/50 border-2 border-slate-400 dark:border-slate-500'
@@ -336,6 +673,7 @@ export default function ConsultaAnimalView() {
                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
               }`}>
                 <p className={`text-2xl font-bold ${
+                  filhoTopRanking ? 'text-emerald-600 dark:text-emerald-400' :
                   rankingPosicao === 1 ? 'text-amber-600 dark:text-amber-400' :
                   rankingPosicao === 2 ? 'text-slate-600 dark:text-slate-300' :
                   rankingPosicao === 3 ? 'text-amber-700 dark:text-amber-300' :
@@ -345,14 +683,15 @@ export default function ConsultaAnimalView() {
                   {animal.abczg}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">iABCZ</p>
-                {rankingPosicao && rankingPosicao <= 10 && (
+                {(filhoTopRanking || (rankingPosicao && rankingPosicao <= 10)) && (
                   <p className={`text-xs font-bold mt-0.5 ${
+                    filhoTopRanking ? 'text-emerald-600 dark:text-emerald-400' :
                     rankingPosicao === 1 ? 'text-amber-600 dark:text-amber-400' :
                     rankingPosicao === 2 ? 'text-slate-600 dark:text-slate-400' :
                     rankingPosicao === 3 ? 'text-amber-700 dark:text-amber-400' :
                     'text-blue-600 dark:text-blue-400'
                   }`}>
-                    {rankingPosicao}º ranking
+                    {filhoTopRanking ? 'Mãe do 1º' : `${rankingPosicao}º ranking`}
                   </p>
                 )}
               </div>
@@ -365,14 +704,8 @@ export default function ConsultaAnimalView() {
             )}
             {mesesIdade != null && (
               <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 text-center">
-                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{mesesIdade}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">meses</p>
-              </div>
-            )}
-            {animal.peso && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-200 dark:border-gray-700 text-center">
-                <p className="text-2xl font-bold text-slate-700 dark:text-slate-300">{animal.peso}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">kg</p>
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{mesesIdade}m {diasAdicionais != null && diasAdicionais > 0 ? `${diasAdicionais}d` : ''}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">idade</p>
               </div>
             )}
             {isPrenha && diasParaParto != null && (
@@ -425,6 +758,11 @@ export default function ConsultaAnimalView() {
                     {diasParaProximoExame != null && diasParaProximoExame > 0 && `Faltam ${diasParaProximoExame} dias`}
                     {diasParaProximoExame != null && diasParaProximoExame <= 0 && `Vencido há ${Math.abs(diasParaProximoExame)} dias`}
                   </p>
+                  {exameProgress != null && (
+                    <div className="mt-3 h-2 rounded-full bg-white/20 overflow-hidden">
+                      <div style={{ width: `${exameProgress}%` }} className="h-2 bg-white"></div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -444,6 +782,11 @@ export default function ConsultaAnimalView() {
                     {diasGestacao != null && `${diasGestacao} dias de gestação`}
                     {diasParaParto != null && diasParaParto <= 30 && ` • Faltam ${diasParaParto} dias!`}
                   </p>
+                  {gestacaoProgress != null && (
+                    <div className="mt-3 h-2 rounded-full bg-white/20 overflow-hidden">
+                      <div style={{ width: `${gestacaoProgress}%` }} className="h-2 bg-white"></div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -459,6 +802,11 @@ export default function ConsultaAnimalView() {
 
           {/* Card principal */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+            {/* Identificação em destaque */}
+            <div className="px-4 py-2 bg-gray-100 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+              <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">Identificação</p>
+              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{animal.serie || '-'} {animal.rg || ''}</p>
+            </div>
             <div className="p-6 border-b border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30">
@@ -467,7 +815,13 @@ export default function ConsultaAnimalView() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-xl font-bold text-gray-900 dark:text-white">{nome}</h1>
-                    {rankingPosicao === 1 && (
+                    {filhoTopRanking && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500 text-white text-sm font-bold shadow-lg">
+                        <UserGroupIcon className="h-4 w-4" />
+                        Mãe do 1º iABCZ
+                      </span>
+                    )}
+                    {rankingPosicao === 1 && !filhoTopRanking && (
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500 text-white text-sm font-bold shadow-lg">
                         <TrophyIcon className="h-4 w-4" />
                         1º iABCZ
@@ -491,9 +845,6 @@ export default function ConsultaAnimalView() {
                       </span>
                     )}
                   </div>
-                  <p className="text-amber-600 dark:text-amber-400 font-semibold">
-                    {animal.serie || '-'} {animal.rg || ''}
-                  </p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {examesAndrologicos.length > 0 && (() => {
                       const ult = examesAndrologicos[0]
@@ -516,6 +867,14 @@ export default function ConsultaAnimalView() {
                       </span>
                     )}
                   </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <button type="button" onClick={handleCopyIdent} className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 text-xs font-semibold">
+                      Copiar identificação
+                    </button>
+                    <button type="button" onClick={handleWhatsAppShare} className="px-3 py-1.5 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-800 text-xs font-semibold">
+                      WhatsApp
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -524,22 +883,91 @@ export default function ConsultaAnimalView() {
               <InfoRow label="Raça" value={animal.raca} />
               <InfoRow label="Pelagem" value={animal.pelagem} />
               <InfoRow label="Situação" value={animal.situacao} />
+              <div className="px-6 py-3 flex justify-between items-center bg-amber-50/50 dark:bg-amber-900/20 border-t border-amber-100 dark:border-amber-800/30">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-200 flex items-center gap-1">
+                  <MapPinIcon className="h-4 w-4" />
+                  Localização (Piquete)
+                </span>
+                <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
+                  {locAtual || 'Não informado'}
+                </span>
+              </div>
+              <InfoRow label="Categoria" value={animal.categoria} />
               <InfoRow label="Data nascimento" value={formatDate(animal.data_nascimento)} />
-              {mesesIdade != null && (
-                <InfoRow
-                  label="Idade"
-                  value={mesesIdade >= 12 ? `${anosIdade} anos (${mesesIdade} meses)` : `${mesesIdade} meses`}
-                />
+              {ultimaIA && (
+                <>
+                  <div className="px-6 py-3 flex justify-between items-center bg-pink-50/50 dark:bg-pink-900/20 border-t border-pink-100 dark:border-pink-800/30">
+                    <span className="text-sm font-medium text-pink-800 dark:text-pink-200">
+                      Touro (última IA)
+                    </span>
+                    <span className="text-sm font-bold text-pink-600 dark:text-pink-400">
+                      {ultimaIA.touro_nome || ultimaIA.touro || '-'}
+                    </span>
+                  </div>
+                  {previsaoPartoIA && (
+                    <div className="px-6 py-3 flex justify-between items-center bg-emerald-50/50 dark:bg-emerald-900/20 border-t border-emerald-100 dark:border-emerald-800/30">
+                      <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                        Previsão de Parto
+                      </span>
+                      <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+                        {previsaoPartoIA.toLocaleDateString('pt-BR')} ({Math.floor((previsaoPartoIA - new Date()) / (1000 * 60 * 60 * 24))} dias)
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
-              <InfoRow label="Peso" value={animal.peso ? `${animal.peso} kg` : null} />
-              {animal.sexo && (animal.sexo.toLowerCase().includes('m') || animal.sexo === 'M') && animal.ce && (
-                <InfoRow label="CE (Circunferência Escrotal)" value={`${animal.ce} cm`} />
+              {(animal.mae || animal.serie_mae || animal.rg_mae) && (
+                <div className="px-6 py-3 flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Mãe</span>
+                  <div className="text-right">
+                    {animal.mae && (
+                      <span className="text-sm font-medium text-gray-900 dark:text-white block">
+                        {animal.mae}
+                      </span>
+                    )}
+                    {(animal.serie_mae || animal.rg_mae) && (
+                      <Link href={`/consulta-animal/${animal.serie_mae}-${animal.rg_mae}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold">
+                        {[animal.serie_mae, animal.rg_mae].filter(Boolean).join(' ')}
+                      </Link>
+                    )}
+                  </div>
+                </div>
               )}
-              <InfoRow label="Mãe" value={animal.mae} />
               <InfoRow label="Pai" value={animal.pai} />
-              <InfoRow label="Avô materno" value={animal.avo_materno || animal.avoMaterno} />
+              {(animal.avo_materno || animal.avoMaterno || animal.avo_materna || animal.avoMaterna || animal.avo_paterno || animal.avoPaterno || animal.avo_paterna || animal.avoPaterna) && (
+                <div className="px-6 py-4 bg-amber-50/30 dark:bg-amber-900/10 border-t border-amber-100 dark:border-amber-800/20">
+                  
+                  <div className="space-y-2 text-sm">
+                    {(animal.avo_materno || animal.avoMaterno) && (
+                      <div className="flex justify-between pl-3 border-l-2 border-amber-300 dark:border-amber-700">
+                        <span className="text-gray-600 dark:text-gray-400 text-xs">Avô materno</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-xs">{animal.avo_materno || animal.avoMaterno}</span>
+                      </div>
+                    )}
+                    {(animal.avo_materna || animal.avoMaterna) && (
+                      <div className="flex justify-between pl-3 border-l-2 border-amber-300 dark:border-amber-700">
+                        <span className="text-gray-600 dark:text-gray-400 text-xs">Avó materna</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-xs">{animal.avo_materna || animal.avoMaterna}</span>
+                      </div>
+                    )}
+                    {(animal.avo_paterno || animal.avoPaterno) && (
+                      <div className="flex justify-between pl-3 border-l-2 border-blue-300 dark:border-blue-700 mt-3">
+                        <span className="text-gray-600 dark:text-gray-400 text-xs">Avô paterno</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-xs">{animal.avo_paterno || animal.avoPaterno}</span>
+                      </div>
+                    )}
+                    {(animal.avo_paterna || animal.avoPaterna) && (
+                      <div className="flex justify-between pl-3 border-l-2 border-blue-300 dark:border-blue-700">
+                        <span className="text-gray-600 dark:text-gray-400 text-xs">Avó paterna</span>
+                        <span className="font-medium text-gray-900 dark:text-white text-xs">{animal.avo_paterna || animal.avoPaterna}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {(animal.abczg || animal.abczg === 0) && (
                 <div className={`px-6 py-3 flex justify-between items-center border-t ${
+                  filhoTopRanking ? 'bg-emerald-50/50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800/30' :
                   rankingPosicao === 1 ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800/30' :
                   rankingPosicao === 2 ? 'bg-slate-50/50 dark:bg-slate-900/10 border-slate-200 dark:border-slate-700' :
                   rankingPosicao === 3 ? 'bg-amber-50/30 dark:bg-amber-900/5 border-amber-100 dark:border-amber-800/20' :
@@ -547,16 +975,18 @@ export default function ConsultaAnimalView() {
                   'border-gray-100 dark:border-gray-700'
                 }`}>
                   <span className={`text-sm font-medium flex items-center gap-1 ${
+                    filhoTopRanking ? 'text-emerald-800 dark:text-emerald-200' :
                     rankingPosicao === 1 ? 'text-amber-800 dark:text-amber-200' :
                     rankingPosicao === 2 ? 'text-slate-700 dark:text-slate-300' :
                     rankingPosicao === 3 ? 'text-amber-800 dark:text-amber-200' :
                     rankingPosicao && rankingPosicao <= 10 ? 'text-blue-800 dark:text-blue-200' :
                     'text-gray-600 dark:text-gray-400'
                   }`}>
-                    <TrophyIcon className="h-4 w-4" />
+                    {filhoTopRanking ? <UserGroupIcon className="h-4 w-4" /> : <TrophyIcon className="h-4 w-4" />}
                     iABCZ (avaliação genética)
                   </span>
                   <span className={`text-lg font-bold ${
+                    filhoTopRanking ? 'text-emerald-600 dark:text-emerald-400' :
                     rankingPosicao === 1 ? 'text-amber-600 dark:text-amber-400' :
                     rankingPosicao === 2 ? 'text-slate-600 dark:text-slate-300' :
                     rankingPosicao === 3 ? 'text-amber-700 dark:text-amber-400' :
@@ -564,7 +994,12 @@ export default function ConsultaAnimalView() {
                     'text-gray-900 dark:text-white'
                   }`}>
                     {animal.abczg}
-                    {rankingPosicao && rankingPosicao <= 10 && (
+                    {filhoTopRanking && (
+                      <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100">
+                        Mãe do 1º
+                      </span>
+                    )}
+                    {rankingPosicao && rankingPosicao <= 10 && !filhoTopRanking && (
                       <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${
                         rankingPosicao === 1 ? 'bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100' :
                         rankingPosicao === 2 ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100' :
@@ -587,6 +1022,7 @@ export default function ConsultaAnimalView() {
               )}
               <InfoRow label="Comprador/Destino" value={animal.comprador || animal.destino} />
               <InfoRow label="Receptora" value={animal.receptora} />
+              <InfoRow label="Situação ABCZ" value={animal.situacao_abcz || animal.situacaoAbcz || '-'} />
               {(animal.custo_aquisicao || animal.custoAquisicao) && (
                 <InfoRow label="Custo aquisição" value={formatCurrency(animal.custo_aquisicao || animal.custoAquisicao)} />
               )}
@@ -910,8 +1346,8 @@ export default function ConsultaAnimalView() {
             </div>
           )}
 
-          {/* Localização atual + histórico */}
-          {(locAtual || (animal.localizacoes && animal.localizacoes.length > 0)) && (
+          {/* Localização atual + histórico - sempre exibir para manter layout consistente */}
+          {(
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
               <button
                 type="button"
@@ -925,11 +1361,9 @@ export default function ConsultaAnimalView() {
                   </div>
                   {secoesExpandidas.localizacoes ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
                 </div>
-                {locAtual && (
-                  <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mt-1">
-                    Atual: {locAtual}
-                  </p>
-                )}
+                <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 mt-1">
+                  Atual: {locAtual || 'Não informado'}
+                </p>
               </button>
               <div className={`overflow-hidden transition-all ${secoesExpandidas.localizacoes ? 'max-h-[999px]' : 'max-h-0'}`}>
                 {animal.localizacoes && animal.localizacoes.length > 1 && (
@@ -938,7 +1372,7 @@ export default function ConsultaAnimalView() {
                     <div className="space-y-1">
                       {animal.localizacoes.slice(0, 6).map((l, i) => (
                         <div key={l.id || i} className="flex justify-between text-sm py-1">
-                          <span className="text-gray-700 dark:text-gray-300 font-medium">{l.piquete}</span>
+                          <span className="text-gray-700 dark:text-gray-300 font-medium">{localizacaoValidaParaExibir(l.piquete) || 'Não informado'}</span>
                           <span className="text-gray-500 dark:text-gray-400 text-xs">
                             {formatDate(l.data_entrada)}
                             {l.data_saida && ` → ${formatDate(l.data_saida)}`}
@@ -978,27 +1412,42 @@ export default function ConsultaAnimalView() {
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {animal.filhos.map((f, i) => {
                   const identificacao = `${f.nome || f.serie || '-'} ${f.rg || ''}`.trim()
-                  const conteudo = (
-                    <div className={`px-4 py-3 flex justify-between items-center gap-2 ${f.id ? 'hover:bg-amber-50 dark:hover:bg-amber-900/20 active:bg-amber-100 dark:active:bg-amber-900/30 transition-colors cursor-pointer' : ''}`}>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {identificacao || '-'}
-                      </span>
-                      <span className="flex items-center gap-1 shrink-0">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {f.sexo || ''} • {formatDate(f.data_nascimento)}
+                  const mesesFilho = calcularMesesIdade(f.data_nascimento, f.meses)
+                  
+                  const conteudoFilho = (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-gray-900 dark:text-white block">
+                          {identificacao || '-'}
                         </span>
-                        {f.id && (
-                          <ArrowTopRightOnSquareIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        )}
-                      </span>
-                    </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-500 dark:text-gray-400">
+                          {f.sexo && <span>{f.sexo}</span>}
+                          {formatDate(f.data_nascimento) !== '-' && <span>Nasc: {formatDate(f.data_nascimento)}</span>}
+                          {mesesFilho != null && <span className="font-medium text-amber-600 dark:text-amber-400">{mesesFilho}m</span>}
+                          {(f.abczg != null && f.abczg !== '') && <span className="font-medium text-blue-600 dark:text-blue-400">iABCZ: {f.abczg}</span>}
+                          {(f.deca != null && f.deca !== '') && <span className="font-medium text-emerald-600 dark:text-emerald-400">DECA: {f.deca}</span>}
+                        </div>
+                      </div>
+                      {f.id && <ArrowTopRightOnSquareIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />}
+                    </>
                   )
-                  return f.id ? (
-                    <Link key={f.id || i} href={`/consulta-animal/${f.id}`}>
-                      {conteudo}
-                    </Link>
-                  ) : (
-                    <div key={f.id || i}>{conteudo}</div>
+                  
+                  if (f.id) {
+                    return (
+                      <Link 
+                        key={f.id || i} 
+                        href={`/consulta-animal/${f.id}`}
+                        className="px-4 py-3 flex justify-between items-center gap-3 hover:bg-amber-50 dark:hover:bg-amber-900/20 active:bg-amber-100 dark:active:bg-amber-900/30 transition-colors cursor-pointer"
+                      >
+                        {conteudoFilho}
+                      </Link>
+                    )
+                  }
+                  
+                  return (
+                    <div key={f.id || i} className="px-4 py-3 flex justify-between items-center gap-3">
+                      {conteudoFilho}
+                    </div>
                   )
                 })}
               </div>
@@ -1006,30 +1455,144 @@ export default function ConsultaAnimalView() {
             </div>
           )}
 
+          {/* Ocorrências (histórico de serviços, vacinas, tratamentos) */}
+          {ocorrencias.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleSecao('ocorrencias')}
+                className="w-full p-4 bg-gradient-to-r from-orange-100 to-amber-100 dark:from-orange-900/40 dark:to-amber-900/40 border-b border-gray-200 dark:border-gray-700 text-left active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    <h2 className="font-semibold text-gray-900 dark:text-white">Ocorrências</h2>
+                  </div>
+                  {secoesExpandidas.ocorrencias ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                  {ocorrencias.length} registro(s) • Vacinas, tratamentos, serviços
+                </p>
+              </button>
+              <div className={`overflow-hidden transition-all ${secoesExpandidas.ocorrencias ? 'max-h-[999px]' : 'max-h-0'}`}>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {ocorrencias.slice(0, 15).map((o, i) => (
+                    <div key={o.id || i} className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatDate(o.data_registro || o.data)}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                        {o.descricao || o.observacoes || o.tipo || '-'}
+                      </p>
+                      {(o.servicos_aplicados?.length > 0 || o.medicamento) && (
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                          {o.servicos_aplicados?.join(', ') || o.medicamento}
+                        </p>
+                      )}
+                      {(o.peso || o.ce) && (
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">
+                          {o.peso && `Peso: ${o.peso} kg`}
+                          {o.peso && o.ce && ' • '}
+                          {o.ce && `CE: ${o.ce} cm`}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Transferências de Embriões (receptoras) */}
+          {transferencias.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border-2 border-violet-200 dark:border-violet-800 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleSecao('transferencias')}
+                className="w-full p-4 bg-gradient-to-r from-violet-100 to-purple-100 dark:from-violet-900/50 dark:to-purple-900/50 border-b border-gray-200 dark:border-gray-700 text-left active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CubeTransparentIcon className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                    <h2 className="font-semibold text-gray-900 dark:text-white">Transferências (TE)</h2>
+                  </div>
+                  {secoesExpandidas.transferencias ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                  {transferencias.length} TE(s) como receptora
+                </p>
+              </button>
+              <div className={`overflow-hidden transition-all ${secoesExpandidas.transferencias ? 'max-h-[999px]' : 'max-h-0'}`}>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {transferencias.map((te, i) => (
+                    <div key={te.id || i} className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {formatDate(te.data_te || te.data_transferencia)}
+                        {te.numero_te && <span className="ml-2 text-xs text-gray-500">#{te.numero_te}</span>}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                        Doadora: {te.doadora_nome || te.doadora || '-'} • Touro: {te.touro || '-'}
+                      </p>
+                      {(te.resultado || te.status) && (
+                        <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
+                          String(te.resultado || te.status || '').toLowerCase().includes('prenha')
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                            : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                        }`}>
+                          {te.resultado || te.status}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Protocolos Sanitários */}
           {animal.protocolos && animal.protocolos.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-emerald-600/10 to-green-600/10 dark:from-emerald-900/30 dark:to-green-900/30 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2">
-                  <ShieldCheckIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                  <h2 className="font-semibold text-gray-900 dark:text-white">Protocolos Sanitários</h2>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {animal.protocolos.length} protocolo(s)
-                </p>
-              </div>
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {animal.protocolos.slice(0, 5).map((p, i) => (
-                  <div key={p.id || i} className="px-4 py-3">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {p.nome_protocolo || p.protocolo || p.tipo || 'Protocolo'}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatDate(p.data_inicio)}
-                      {p.data_fim && ` — ${formatDate(p.data_fim)}`}
-                    </p>
+              <button
+                type="button"
+                onClick={() => toggleSecao('protocolos')}
+                className="w-full p-4 bg-gradient-to-r from-emerald-600/10 to-green-600/10 dark:from-emerald-900/30 dark:to-green-900/30 border-b border-gray-200 dark:border-gray-700 text-left hover:from-emerald-600/20 hover:to-green-600/20 active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheckIcon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    <h2 className="font-semibold text-gray-900 dark:text-white">Protocolos Sanitários</h2>
                   </div>
-                ))}
+                  {secoesExpandidas.protocolos ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                  {animal.protocolos.length} protocolo(s) registrado(s)
+                </p>
+              </button>
+              <div className={`overflow-hidden transition-all ${secoesExpandidas.protocolos ? 'max-h-[999px]' : 'max-h-0'}`}>
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {animal.protocolos.map((p, i) => (
+                    <div key={p.id || i} className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {p.nome_protocolo || p.protocolo || p.tipo || 'Protocolo'}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Início: {formatDate(p.data_inicio)}
+                        {p.data_fim && ` • Fim: ${formatDate(p.data_fim)}`}
+                      </p>
+                      {p.veterinario && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Vet: {p.veterinario}</p>
+                      )}
+                      {p.observacoes && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{p.observacoes}</p>
+                      )}
+                      {p.custo && (
+                        <p className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1">
+                          Custo: {formatCurrency(p.custo)}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -1037,35 +1600,58 @@ export default function ConsultaAnimalView() {
           {/* Pesagens recentes */}
           {animal.pesagens && animal.pesagens.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-slate-600/10 to-slate-500/10 dark:from-slate-800/50 dark:to-slate-700/50 border-b border-gray-200 dark:border-gray-700">
+              <button
+                type="button"
+                onClick={() => toggleSecao('pesagens')}
+                className="w-full p-4 bg-gradient-to-r from-slate-600/10 to-slate-500/10 dark:from-slate-800/50 dark:to-slate-700/50 border-b border-gray-200 dark:border-gray-700 text-left hover:from-slate-600/20 hover:to-slate-500/20 active:scale-[0.99] transition-all"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ScaleIcon className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                     <h2 className="font-semibold text-gray-900 dark:text-white">Pesagens</h2>
                   </div>
-                  {evolucaoPeso != null && (
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      parseFloat(evolucaoPeso) >= 0
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                        : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-                    }`}>
-                      {parseFloat(evolucaoPeso) >= 0 ? '+' : ''}{evolucaoPeso} kg
-                    </span>
-                  )}
-                </div>
-                {evolucaoPeso != null && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Evolução desde {formatDate(primeiraPesagem?.data)}
-                  </p>
-                )}
-              </div>
-              <div className="p-4 space-y-2">
-                {animal.pesagens.slice(0, 6).map((p, i) => (
-                  <div key={p.id || i} className="flex justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">{formatDate(p.data)}</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{p.peso || p.peso_kg} kg</span>
+                  <div className="flex items-center gap-2">
+                    {evolucaoPeso != null && (
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        parseFloat(evolucaoPeso) >= 0
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
+                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                      }`}>
+                        {parseFloat(evolucaoPeso) >= 0 ? '+' : ''}{evolucaoPeso} kg
+                      </span>
+                    )}
+                    {secoesExpandidas.pesagens ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
                   </div>
-                ))}
+                </div>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                  {animal.pesagens.length} pesagem(ns)
+                  {evolucaoPeso != null && ` • Evolução desde ${formatDate(primeiraPesagem?.data)}`}
+                </p>
+              </button>
+              <div className={`overflow-hidden transition-all ${secoesExpandidas.pesagens ? 'max-h-[999px]' : 'max-h-0'}`}>
+                <div className="p-4 space-y-2">
+                  {animal.pesagens.map((p, i) => (
+                    <div key={p.id || i} className="flex justify-between items-center text-sm py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                      <div className="min-w-0">
+                        <span className="text-gray-700 dark:text-gray-300 font-medium">{formatDate(p.data)}</span>
+                        {p.lote && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Lote: {p.lote}</p>
+                        )}
+                        {p.observacoes && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{p.observacoes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {p.ce && isMacho && (
+                          <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-medium">
+                            CE {p.ce} cm
+                          </span>
+                        )}
+                        <span className="font-semibold text-gray-900 dark:text-white">{p.peso || p.peso_kg} kg</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -1073,26 +1659,60 @@ export default function ConsultaAnimalView() {
           {/* Custos */}
           {custoTotal > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="p-4 bg-gradient-to-r from-green-600/10 to-emerald-600/10 dark:from-green-900/30 dark:to-emerald-900/30 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2">
-                  <CurrencyDollarIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <h2 className="font-semibold text-gray-900 dark:text-white">Custos</h2>
+              <button
+                type="button"
+                onClick={() => toggleSecao('custos')}
+                className="w-full p-4 bg-gradient-to-r from-green-600/10 to-emerald-600/10 dark:from-green-900/30 dark:to-emerald-900/30 border-b border-gray-200 dark:border-gray-700 text-left hover:from-green-600/20 hover:to-emerald-600/20 active:scale-[0.99] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CurrencyDollarIcon className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <h2 className="font-semibold text-gray-900 dark:text-white">Custos Detalhados</h2>
+                  </div>
+                  {secoesExpandidas.custos ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
                 </div>
                 <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">{formatCurrency(custoTotal)}</p>
-              </div>
-              {Object.keys(custosPorTipo).length > 1 && (
-                <div className="p-4 space-y-2">
-                  {Object.entries(custosPorTipo)
-                    .sort((a, b) => b[1] - a[1])
-                    .slice(0, 6)
-                    .map(([tipo, val]) => (
-                      <div key={tipo} className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">{tipo}</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(val)}</span>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{custosArray.length} lançamento(s)</p>
+              </button>
+              <div className={`overflow-hidden transition-all ${secoesExpandidas.custos ? 'max-h-[999px]' : 'max-h-0'}`}>
+                {Object.keys(custosPorTipo).length > 1 && (
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-semibold">Por categoria</p>
+                    <div className="space-y-2">
+                      {Object.entries(custosPorTipo)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([tipo, val]) => (
+                          <div key={tipo} className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">{tipo}</span>
+                            <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(val)}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {custosArray.slice(0, 10).map((c, i) => (
+                    <div key={c.id || i} className="px-4 py-3">
+                      <div className="flex justify-between items-start gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {c.tipo || c.subtipo || 'Custo'}
+                          </p>
+                          {c.descricao && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{c.descricao}</p>
+                          )}
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            {formatDate(c.data)}
+                          </p>
+                        </div>
+                        <span className="text-sm font-bold text-green-600 dark:text-green-400 shrink-0">
+                          {formatCurrency(c.valor)}
+                        </span>
                       </div>
-                    ))}
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -1122,19 +1742,140 @@ export default function ConsultaAnimalView() {
               </div>
             </div>
           )}
+
+          {/* Informações Adicionais */}
+          {(animal.origem || animal.fazenda_origem || animal.fazendaOrigem || animal.lote || animal.status_sanitario || animal.statusSanitario || animal.comprador || animal.destino) && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <DocumentTextIcon className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <h2 className="font-semibold text-gray-900 dark:text-white">Informações Adicionais</h2>
+              </div>
+              <div className="space-y-2">
+                {animal.origem && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Origem</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{animal.origem}</span>
+                  </div>
+                )}
+                {(animal.fazenda_origem || animal.fazendaOrigem) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Fazenda origem</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{animal.fazenda_origem || animal.fazendaOrigem}</span>
+                  </div>
+                )}
+                {animal.lote && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Lote</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{animal.lote}</span>
+                  </div>
+                )}
+                {(animal.status_sanitario || animal.statusSanitario) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Status sanitário</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{animal.status_sanitario || animal.statusSanitario}</span>
+                  </div>
+                )}
+                {(animal.comprador || animal.destino) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Comprador/Destino</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{animal.comprador || animal.destino}</span>
+                  </div>
+                )}
+                {animal.receptora && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Receptora</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{animal.receptora}</span>
+                  </div>
+                )}
+                {dataChegada && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Data chegada</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{formatDate(dataChegada)}</span>
+                  </div>
+                )}
+                {animal.data_saida && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Data saída</span>
+                    <span className="font-medium text-gray-900 dark:text-white">{formatDate(animal.data_saida)}</span>
+                  </div>
+                )}
+                {(animal.valor_venda || animal.valorVenda) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Valor venda</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{formatCurrency(animal.valor_venda || animal.valorVenda)}</span>
+                  </div>
+                )}
+                {(animal.custo_aquisicao || animal.custoAquisicao) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Custo aquisição</span>
+                    <span className="font-bold text-green-600 dark:text-green-400">{formatCurrency(animal.custo_aquisicao || animal.custoAquisicao)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Botão fixo inferior */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <Link
-            href="/a?buscar=1"
-            className="flex items-center justify-center gap-2 w-full max-w-lg mx-auto py-4 rounded-xl bg-amber-600 text-white font-semibold text-lg hover:bg-amber-700"
-          >
-            <ArrowLeftIcon className="h-6 w-6" />
-            Nova Consulta
-          </Link>
+          <div className="max-w-lg mx-auto grid grid-cols-3 gap-2">
+            <Link
+              href="/a?buscar=1"
+              className="flex items-center justify-center gap-1 py-4 rounded-xl bg-amber-600 dark:bg-amber-500 text-white font-semibold text-sm hover:bg-amber-700 dark:hover:bg-amber-600 active:scale-[0.98] transition-transform"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+              Nova Consulta
+            </Link>
+            <Link
+              href="/mobile-relatorios"
+              className="flex items-center justify-center gap-1 py-4 rounded-xl bg-gray-600 dark:bg-gray-500 text-white font-semibold text-sm hover:bg-gray-700 dark:hover:bg-gray-600 active:scale-[0.98] transition-transform"
+            >
+              <ChartBarIcon className="h-5 w-5" />
+              Relatórios
+            </Link>
+            <button
+              type="button"
+              onClick={handleShareSummary}
+              disabled={sharing}
+              className="flex items-center justify-center gap-1 py-4 rounded-xl bg-blue-600 dark:bg-blue-500 text-white font-semibold text-sm hover:bg-blue-700 dark:hover:bg-blue-600 active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {sharing ? (
+                <>
+                  <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                  Compartilhando
+                </>
+              ) : (
+                <>
+                  <DocumentTextIcon className="h-6 w-6" />
+                  Compartilhar
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
+      {showIABCZInfo && (
+        <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowIABCZInfo(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-3">
+              <TrophyIcon className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <h3 className="font-bold text-gray-900 dark:text-white">iABCZ e Ranking</h3>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300">
+              O iABCZ indica avaliação genética. Quanto maior, melhor a classificação. O ranking mostra a posição deste animal entre os avaliados do rebanho.
+            </p>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowIABCZInfo(false)}
+                className="px-4 py-2 rounded-lg bg-amber-600 dark:bg-amber-500 text-white font-semibold hover:bg-amber-700 dark:hover:bg-amber-600"
+              >
+                Entendi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

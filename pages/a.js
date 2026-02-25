@@ -6,7 +6,17 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Image from 'next/image'
-import { MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
+import Link from 'next/link'
+import { MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, DevicePhoneMobileIcon, ChartBarIcon, ChatBubbleLeftRightIcon, TrophyIcon } from '@heroicons/react/24/outline'
+
+const STORAGE_KEY = 'beef_usuario_identificado'
+
+function formatPhone(v) {
+  const digits = String(v).replace(/\D/g, '')
+  if (digits.length <= 2) return digits ? `(${digits}` : ''
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`
+}
 
 export default function ConsultaRapida() {
   const router = useRouter()
@@ -18,26 +28,73 @@ export default function ConsultaRapida() {
   const [showSplash, setShowSplash] = useState(false)
   const [splashProgress, setSplashProgress] = useState(0)
   const [isMobile, setIsMobile] = useState(false)
+  const [identificado, setIdentificado] = useState(null)
+  const [nomeIdent, setNomeIdent] = useState('')
+  const [telefoneIdent, setTelefoneIdent] = useState('')
   const serieRef = useRef(null)
   const autoSearchDone = useRef(false)
+  const inactivityTimerRef = useRef(null)
 
-  // Detectar se é mobile e mostrar splash apenas em mobile (não mostrar quando vier de Nova Consulta)
+  // Verificar se já está identificado (localStorage) - localhost pula
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const host = window.location.hostname
+    if (host === 'localhost' || host === '127.0.0.1') {
+      setIdentificado(true)
+      return
+    }
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      setIdentificado(!!stored)
+    } catch (_) {
+      setIdentificado(false)
+    }
+  }, [])
+
+  // Deslogar após 10 min de inatividade (exceto localhost)
+  useEffect(() => {
+    if (typeof window === 'undefined' || identificado !== true) return
+    const host = window.location.hostname
+    if (host === 'localhost' || host === '127.0.0.1') return
+
+    const INACTIVITY_MS = 10 * 60 * 1000 // 10 minutos
+
+    const resetTimer = () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
+      inactivityTimerRef.current = setTimeout(() => {
+        try {
+          localStorage.removeItem(STORAGE_KEY)
+        } catch (_) {}
+        setIdentificado(false)
+      }, INACTIVITY_MS)
+    }
+
+    resetTimer()
+    const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click']
+    events.forEach((ev) => window.addEventListener(ev, resetTimer))
+
+    return () => {
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer))
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current)
+    }
+  }, [identificado])
+
+  // Detectar se é mobile e mostrar splash apenas em mobile, e só após identificação
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       setIsMobile(mobile)
-      // Pular splash quando ?buscar=1 (vindo de Nova Consulta) - ir direto para pesquisar
       const skipSplash = typeof window !== 'undefined' && window.location.search.includes('buscar=1')
-      setShowSplash(mobile && !skipSplash)
+      setShowSplash(mobile && !skipSplash && identificado === true)
     }
     checkMobile()
-  }, [])
+  }, [identificado])
 
   // Splash screen com animação de progresso (apenas mobile)
   useEffect(() => {
     if (!showSplash) return
     
-    const duration = 5000 // 5 segundos
+    const duration = 1000 // 3 segundos
     const interval = 50 // atualizar a cada 50ms
     const steps = duration / interval
     let currentStep = 0
@@ -85,6 +142,26 @@ export default function ConsultaRapida() {
   useEffect(() => {
     serieRef.current?.focus()
   }, [])
+
+  const handleIdentificacaoSubmit = (e) => {
+    e.preventDefault()
+    const telDigits = telefoneIdent.replace(/\D/g, '')
+    if (!nomeIdent.trim()) {
+      setError('Informe seu nome.')
+      return
+    }
+    if (telDigits.length < 10) {
+      setError('Informe um telefone válido (com DDD).')
+      return
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ nome: nomeIdent.trim(), telefone: telDigits }))
+      setIdentificado(true)
+      setError('')
+    } catch (_) {
+      setError('Erro ao salvar.')
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -208,7 +285,62 @@ export default function ConsultaRapida() {
 
       <div className="min-h-screen flex flex-col items-center justify-center px-4 py-6 bg-gradient-to-br from-gray-50 via-amber-50/30 to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
         <div className="">
-          {/* Logo e Header */}
+          {/* Tela de identificação - ANTES da consulta (exceto localhost) */}
+          {identificado !== true && (
+            <div className="w-full max-w-sm animate-fade-in">
+              <div className="mb-6 text-center">
+                <div className="inline-flex items-center justify-center w-24 h-24 mb-4 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg overflow-hidden p-2">
+                  <Image src="/Host_ico_rede.ico" alt="Beef-Sync" width={100} height={58} className="object-contain" />
+                </div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 dark:from-amber-500 dark:to-amber-400 bg-clip-text text-transparent mb-1">
+                  Beef-Sync
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Identifique-se para acessar o sistema
+                </p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6">
+                <form onSubmit={handleIdentificacaoSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                    <input
+                      type="text"
+                      value={nomeIdent}
+                      onChange={(e) => { setNomeIdent(e.target.value); setError('') }}
+                      placeholder="Seu nome"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número do celular (com DDD)</label>
+                    <input
+                      type="tel"
+                      value={telefoneIdent}
+                      onChange={(e) => { setTelefoneIdent(formatPhone(e.target.value)); setError('') }}
+                      placeholder="(11) 99999-9999"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      inputMode="numeric"
+                    />
+                  </div>
+                  {error && (
+                    <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                  )}
+                  <button
+                    type="submit"
+                    className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white font-semibold flex items-center justify-center gap-2"
+                  >
+                    <DevicePhoneMobileIcon className="h-6 w-6" />
+                    Entrar no sistema
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Logo e Header - só quando identificado */}
+          {identificado === true && (
+          <>
           <div className="mb-8 text-center animate-fade-in">
             <div className="inline-flex items-center justify-center w-24 h-24 mb-4 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg shadow-amber-500/30 overflow-hidden p-2">
               <Image 
@@ -236,6 +368,25 @@ export default function ConsultaRapida() {
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               Digite os números no celular (Série e RG)
             </p>
+
+            {/* Links para Feedback e Relatórios - Grid 2 colunas */}
+            <div className="mb-5 grid grid-cols-2 gap-3">
+              <Link
+                href="/mobile-feedback"
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-semibold shadow-lg shadow-green-500/30 hover:shadow-green-600/40 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <ChatBubbleLeftRightIcon className="h-5 w-5" />
+                <span className="text-sm">Feedback</span>
+              </Link>
+
+              <Link
+                href="/mobile-relatorios"
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold shadow-lg shadow-blue-500/30 hover:shadow-blue-600/40 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <ChartBarIcon className="h-5 w-5" />
+                <span className="text-sm">Ver Relatórios</span>
+              </Link>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Campo Série */}
@@ -291,7 +442,7 @@ export default function ConsultaRapida() {
                       setError('')
                     }}
                     onBlur={() => setTouched(prev => ({ ...prev, rg: true }))}
-                    placeholder="RG (digite os números no celular)"
+                    placeholder="RG (digite os números)"
                     className={getInputClass(isRgValid, touched.rg)}
                     autoComplete="off"
                     inputMode="numeric"
@@ -349,6 +500,8 @@ export default function ConsultaRapida() {
               💡 Exemplo: Série <span className="font-semibold text-amber-600 dark:text-amber-500">CJCJ</span> e RG <span className="font-semibold text-amber-600 dark:text-amber-500">15563</span>
             </p>
           </div>
+          </>
+          )}
         </div>
       </div>
 

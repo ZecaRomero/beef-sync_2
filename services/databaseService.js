@@ -86,11 +86,15 @@ class DatabaseService {
       `, [animal.serie, animal.rg]);
 
       // Buscar nascimentos (filhos) - onde este animal é a mãe
-      // Assumindo que nascimentos estão vinculados a gestações, mas também podemos buscar na tabela animais onde mae = serie-rg
-      const filhos = await query(`
-        SELECT * FROM animais 
-        WHERE mae LIKE $1 OR mae = $2
-      `, [`%${animal.serie}-${animal.rg}%`, `${animal.serie} ${animal.rg}`]);
+      // Busca por: serie-rg no mae, serie+rg, ou nome da mãe (ex: MOSCA SANT ANNA)
+      const filhosParams = [`%${animal.serie}-${animal.rg}%`, `${animal.serie} ${animal.rg}`]
+      let filhosSql = `SELECT * FROM animais WHERE mae LIKE $1 OR mae = $2`
+      if (animal.nome) {
+        filhosParams.push(animal.nome.trim())
+        filhosSql += ` OR UPPER(TRIM(mae)) = UPPER(TRIM($${filhosParams.length}))`
+      }
+      filhosSql += ` ORDER BY data_nascimento DESC NULLS LAST`
+      const filhosResult = await query(filhosSql, filhosParams)
       
       // Buscar protocolos sanitários
       const protocolos = await query(`
@@ -113,7 +117,7 @@ class DatabaseService {
         inseminacoes: inseminacoes.rows,
         custos: custos.rows,
         gestacoes: gestacoes.rows,
-        filhos: filhos.rows,
+        filhos: filhosResult.rows,
         protocolos: protocolos.rows,
         localizacoes: localizacoes.rows,
         fivs: fivs.rows
@@ -1224,7 +1228,8 @@ class DatabaseService {
       dataTE: 'data_te',
       dataChegada: 'data_chegada',
       precoVenda: 'valor_venda',
-      status: 'situacao'
+      status: 'situacao',
+      situacaoAbcz: 'situacao_abcz'
     }
 
     const campos = []

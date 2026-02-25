@@ -17,6 +17,7 @@ export default async function handler(req, res) {
         await handleGet(req, res, id)
         break
       case 'POST':
+        await ensureLocalizacoesIndex()
         await handlePost(req, res, id)
         break
       default:
@@ -179,5 +180,20 @@ async function handlePost(req, res, animalId) {
       error: 'Erro ao criar localização',
       details: error.message 
     })
+  }
+}
+
+async function ensureLocalizacoesIndex() {
+  try {
+    await query(`
+      ALTER TABLE localizacoes_animais
+      DROP CONSTRAINT IF EXISTS localizacoes_animais_animal_id_key
+    `)
+    await query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_localizacoes_animais_animal_id_ativa
+      ON localizacoes_animais (animal_id) WHERE data_saida IS NULL
+    `)
+  } catch (e) {
+    logger.error('Falha ao garantir índice de localizações:', e)
   }
 }

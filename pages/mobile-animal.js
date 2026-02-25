@@ -9,7 +9,8 @@ import {
   PencilIcon,
   DocumentArrowUpIcon,
   XMarkIcon,
-  TrophyIcon
+  TrophyIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline'
 
 export default function MobileAnimal() {
@@ -139,7 +140,7 @@ export default function MobileAnimal() {
     setCurrentIndex(-1)
   }
 
-  // Parsear texto colado (Série\tRG\tiABCZ\tDeca ou Série,RG,iABCZ,Deca)
+  // Parsear texto colado (Série\tRG\tiABCZ\tDeca\tSituação ABCZ ou Série,RG,iABCZ,Deca,Situação ABCZ)
   const parsearTextoImport = (texto) => {
     const linhas = texto.trim().split(/\r?\n/).filter(Boolean)
     const sep = linhas[0].includes('\t') ? '\t' : ','
@@ -154,7 +155,8 @@ export default function MobileAnimal() {
           serie: cols[0] || '',
           rg: cols[1] || '',
           iABCZ: cols[2] || null,
-          deca: cols[3] || null
+          deca: cols[3] || null,
+          situacaoAbcz: cols[4] || null
         })
       }
     }
@@ -228,13 +230,22 @@ export default function MobileAnimal() {
             <ArrowLeftIcon className="h-5 w-5" />
           </button>
           <h1 className="text-xl font-bold text-white">Beef-Sync Mobile</h1>
-          <button
-            onClick={() => { setShowImportModal(true); setResultadoImport(null); setImportTexto(''); setImportFile(null); }}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
-            title="Importar Série, RG, iABCZ, Deca"
-          >
-            <DocumentArrowUpIcon className="h-5 w-5" />
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/mobile-feedback')}
+              className="p-2 rounded-lg bg-green-600 hover:bg-green-700 text-white"
+              title="Enviar Feedback"
+            >
+              <ChatBubbleLeftRightIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => { setShowImportModal(true); setResultadoImport(null); setImportTexto(''); setImportFile(null); }}
+              className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white"
+              title="Importar Série, RG, iABCZ, Deca"
+            >
+              <DocumentArrowUpIcon className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Modal Importação */}
@@ -378,7 +389,7 @@ export default function MobileAnimal() {
           </div>
         )}
 
-        {/* Ranking Top 10 CE (Circunferência Escrotal) */}
+        {/* Ranking Top 10 C.E */}
         {rankingCE.length > 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-4 mb-4">
             <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-3">
@@ -508,6 +519,9 @@ export default function MobileAnimal() {
               </p>
               <p className="text-white/90 text-sm font-medium">
                 {animal.sexo} • {animal.meses || 0} meses
+              </p>
+              <p className="text-white/90 text-sm font-medium">
+                Situação ABCZ: {animal.situacao_abcz || animal.situacaoAbcz || 'Não informado'}
               </p>
 
               {/* Navegação */}
@@ -701,6 +715,27 @@ export default function MobileAnimal() {
                       </p>
                     </div>
                   )}
+
+                  <div className="col-span-2">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">Receptora</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {animal.receptora || '-'}
+                    </p>
+                  </div>
+
+                  <div className="col-span-2">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">Localização (Piquete)</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual || 'Não informado'}
+                    </p>
+                  </div>
+
+                  <div className="col-span-2">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs">Situação ABCZ</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {animal.situacao_abcz || animal.situacaoAbcz || 'Não informado'}
+                    </p>
+                  </div>
                 </div>
 
                 {animal.observacoes && (

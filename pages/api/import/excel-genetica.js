@@ -59,7 +59,7 @@ export default async function handler(req, res) {
       const { data: rows = [] } = body;
       if (!Array.isArray(rows) || rows.length === 0) {
         return res.status(400).json({
-          error: 'Envie um array "data" com objetos { serie, rg, iABCZ, deca }',
+          error: 'Envie um array "data" com objetos { serie, rg, iABCZ, deca, situacaoAbcz? }',
         });
       }
 
@@ -105,9 +105,13 @@ export default async function handler(req, res) {
     const primeiraLinha = worksheet.getRow(1);
     const cellA1 = (primeiraLinha.getCell(1).value ?? '').toString().toUpperCase();
     const cellB1 = (primeiraLinha.getCell(2).value ?? '').toString().toUpperCase();
-    if (cellA1.includes('SÉRIE') || cellA1.includes('SERIE') || cellB1.includes('RG')) {
+    const cellC1 = (primeiraLinha.getCell(3).value ?? '').toString().toUpperCase();
+    if (cellA1.includes('SÉRIE') || cellA1.includes('SERIE') || cellA1.includes('SERIE') || cellB1.includes('RG') || cellB1.includes('RGN')) {
       startRow = 2;
     }
+
+    // Formato Série|RGN|Status (3 colunas) - ex: SERIE, RGN, Status
+    const formatoStatusAbcz = cellC1.includes('STATUS');
 
     const rows = [];
     for (let i = startRow; i <= worksheet.rowCount; i++) {
@@ -116,10 +120,19 @@ export default async function handler(req, res) {
       const rg = normalizarTexto(row.getCell(2).value);
       if (!serie && !rg) continue;
 
-      const iABCZ = normalizarNumero(row.getCell(3).value);
-      const deca = normalizarTexto(row.getCell(4).value);
+      let iABCZ = null;
+      let deca = null;
+      let situacaoAbcz = null;
 
-      rows.push({ serie, rg, iABCZ, deca });
+      if (formatoStatusAbcz) {
+        situacaoAbcz = normalizarTexto(row.getCell(3).value) || null;
+      } else {
+        iABCZ = normalizarNumero(row.getCell(3).value);
+        deca = normalizarTexto(row.getCell(4).value);
+        situacaoAbcz = normalizarTexto(row.getCell(5).value) || null;
+      }
+
+      rows.push({ serie, rg, iABCZ, deca, situacaoAbcz });
     }
 
     try { fs.unlinkSync(filepath); } catch (e) { /* ignorar */ }
@@ -143,21 +156,23 @@ async function processarLinhas(rows) {
   const resultados = {
     animaisAtualizados: 0,
     naoEncontrados: [],
+    ignoradosInativos: [],
     erros: [],
   };
 
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     const serie = normalizarTexto(r.serie || r.Série || r.SERIE);
-    const rg = normalizarTexto(r.rg || r.RG);
+    const rg = normalizarTexto(r.rg || r.RG || r.RGN);
     const iABCZ = normalizarNumero(r.iABCZ ?? r.iabcz ?? r.abczg);
     const deca = normalizarTexto(r.deca ?? r.Deca ?? r.DECA);
+    const situacaoAbcz = normalizarTexto(r.situacaoAbcz ?? r.situacao_abcz ?? r['Situação ABCZ'] ?? r.Status) || null;
 
     if (!serie && !rg) continue;
 
     try {
       const animalResult = await query(
-        'SELECT id, serie, rg FROM animais WHERE UPPER(COALESCE(TRIM(serie), \'\')) = UPPER($1) AND TRIM(rg::text) = $2',
+        'SELECT id, serie, rg, situacao FROM animais WHERE UPPER(COALESCE(TRIM(serie), \'\')) = UPPER($1) AND TRIM(rg::text) = $2',
         [serie, String(rg)]
       );
 
@@ -167,17 +182,35 @@ async function processarLinhas(rows) {
       }
 
       const animal = animalResult.rows[0];
+      if (String(animal.situacao || '').trim() === 'Inativo') {
+        resultados.ignoradosInativos.push({ linha: i + 1, serie, rg });
+        continue;
+      }
       const abczgVal = iABCZ != null ? String(iABCZ) : null;
       const decaVal = deca || null;
 
-      await query(
-        `UPDATE animais 
-         SET abczg = COALESCE($1, abczg), 
-             deca = COALESCE($2, deca),
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $3`,
-        [abczgVal, decaVal, animal.id]
-      );
+      try {
+        await query(
+          `UPDATE animais 
+           SET abczg = COALESCE($1, abczg), 
+               deca = COALESCE($2, deca),
+               situacao_abcz = COALESCE($3, situacao_abcz),
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = $4`,
+          [abczgVal, decaVal, situacaoAbcz, animal.id]
+        );
+      } catch (colErr) {
+        if (/column.*does not exist/i.test(colErr?.message || '')) {
+          await query(
+            `UPDATE animais 
+             SET abczg = COALESCE($1, abczg), 
+                 deca = COALESCE($2, deca),
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $3`,
+            [abczgVal, decaVal, animal.id]
+          );
+        } else throw colErr;
+      }
 
       resultados.animaisAtualizados++;
     } catch (rowError) {

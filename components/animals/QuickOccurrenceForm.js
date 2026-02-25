@@ -20,7 +20,7 @@ import Input from '../ui/Input'
 const OCCURRENCE_TYPES = {
   Pesagem: { icon: ScaleIcon, color: 'blue', label: 'Pesagem' },
   Local: { icon: MapPinIcon, color: 'green', label: 'Mudança de Local' },
-  CE: { icon: UserIcon, color: 'purple', label: 'CE (Circunferência Escrotal)' },
+  CE: { icon: UserIcon, color: 'purple', label: 'C.E' },
   DG: { icon: HeartIcon, color: 'pink', label: 'DG (Diagnóstico de Gestação)' },
   Vacinação: { icon: ShieldCheckIcon, color: 'emerald', label: 'Vacinação' },
   Exame: { icon: BeakerIcon, color: 'indigo', label: 'Exame' },

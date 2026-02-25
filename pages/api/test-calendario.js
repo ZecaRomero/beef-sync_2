@@ -1,82 +1,62 @@
 import { query } from '../../lib/database'
 
 export default async function handler(req, res) {
+  const start = '2026-01-01'
+  const end = '2026-12-31'
+
   try {
-    console.log('🧪 Teste do calendário iniciado')
-    
-    const sqlReceptoras = `
-      SELECT DISTINCT
-        nf.id as nf_id,
-        nf.numero_nf,
-        nf.data_compra,
-        nf.receptora_letra,
-        nf.receptora_numero,
-        nf.data_te,
-        nf.fornecedor,
-        item.dados_item->>'tatuagem' as tatuagem_item,
-        item.id as item_id
+    console.log('Testando calendário reprodutivo...')
+
+    // Testar eventos manuais
+    console.log('1. Buscando eventos manuais...')
+    const manuais = await query(`
+      SELECT COUNT(*) as total FROM calendario_reprodutivo
+      WHERE data_evento >= $1 AND data_evento <= $2
+    `, [start, end])
+    console.log('Eventos manuais:', manuais.rows[0].total)
+
+    // Testar previsões de parto
+    console.log('2. Buscando previsões de parto...')
+    const previsoes = await query(`
+      SELECT COUNT(*) as total FROM previsoes_parto
+      WHERE data_prevista_parto >= $1 AND data_prevista_parto <= $2
+    `, [start, end])
+    console.log('Previsões de parto:', previsoes.rows[0].total)
+
+    // Testar receptoras
+    console.log('3. Buscando receptoras...')
+    const receptoras = await query(`
+      SELECT COUNT(*) as total
       FROM notas_fiscais nf
-      INNER JOIN notas_fiscais_itens item ON item.nota_fiscal_id = nf.id
       WHERE nf.eh_receptoras = true
         AND nf.tipo = 'entrada'
-        AND (item.tipo_produto = 'bovino' OR item.tipo_produto IS NULL)
-      ORDER BY nf.numero_nf, item.id
+        AND nf.data_compra IS NOT NULL
+    `)
+    console.log('Receptoras totais:', receptoras.rows[0].total)
+
+    // Buscar alguns exemplos
+    const exemplos = await query(`
+      SELECT data_prevista_parto, status
+      FROM previsoes_parto
+      WHERE data_prevista_parto >= $1 AND data_prevista_parto <= $2
       LIMIT 5
-    `
-    
-    const result = await query(sqlReceptoras)
-    
-    console.log(`📋 Encontradas ${result.rows.length} receptoras`)
-    
-    const eventos = []
-    
-    result.rows.forEach((row, index) => {
-      const tatuagem = row.tatuagem_item || ''
-      let letra = row.receptora_letra || ''
-      let numero = row.receptora_numero || ''
-      
-      if (tatuagem) {
-        const matchLetra = tatuagem.match(/^([A-Za-z]+)/)
-        const matchNumero = tatuagem.match(/(\d+)/)
-        if (matchLetra) letra = matchLetra[1].toUpperCase()
-        if (matchNumero) numero = matchNumero[1]
-      }
-      
-      const nomeReceptora = tatuagem || `${letra}${numero}`.trim()
-      
-      console.log(`Item ${index + 1}: ${nomeReceptora}`)
-      
-      if (row.data_compra) {
-        eventos.push({
-          titulo: `Chegada ${nomeReceptora}`,
-          data: row.data_compra,
-          tipo: 'Chegada'
-        })
-      }
-      
-      if (row.data_te) {
-        const dataTE = new Date(row.data_te)
-        const dataParto = new Date(dataTE)
-        dataParto.setMonth(dataParto.getMonth() + 9)
-        
-        eventos.push({
-          titulo: `Parto ${nomeReceptora}`,
-          data: dataParto.toISOString().split('T')[0],
-          tipo: 'Parto Previsto'
-        })
-      }
-    })
-    
-    console.log(`✅ Total de eventos criados: ${eventos.length}`)
-    
-    res.status(200).json({
+    `, [start, end])
+
+    return res.status(200).json({
       success: true,
-      receptoras: result.rows.length,
-      eventos: eventos.length,
-      dados: eventos
+      totais: {
+        manuais: manuais.rows[0].total,
+        previsoes: previsoes.rows[0].total,
+        receptoras: receptoras.rows[0].total
+      },
+      exemplos_previsoes: exemplos.rows
     })
   } catch (error) {
-    console.error('❌ Erro:', error)
-    res.status(500).json({ error: error.message })
+    console.error('Erro:', error)
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    })
   }
 }

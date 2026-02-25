@@ -12,6 +12,7 @@ export default async function handler(req, res) {
         await handleGet(req, res)
         break
       case 'POST':
+        await ensureLocalizacoesIndex()
         await handlePost(req, res)
         break
       case 'PUT':
@@ -30,6 +31,21 @@ export default async function handler(req, res) {
       error: 'Erro interno do servidor',
       details: error.message 
     })
+  }
+}
+
+async function ensureLocalizacoesIndex() {
+  try {
+    await query(`
+      ALTER TABLE localizacoes_animais
+      DROP CONSTRAINT IF EXISTS localizacoes_animais_animal_id_key
+    `)
+    await query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_localizacoes_animais_animal_id_ativa
+      ON localizacoes_animais (animal_id) WHERE data_saida IS NULL
+    `)
+  } catch (e) {
+    logger.error('Falha ao garantir índice de localizações:', e)
   }
 }
 
@@ -133,54 +149,103 @@ async function handlePost(req, res) {
       })
     }
 
-    // Finalizar localização anterior (se existir)
-    await query(`
-      UPDATE localizacoes_animais 
-      SET data_saida = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE animal_id = $2 AND data_saida IS NULL
-    `, [data_entrada, animal_id])
-
-    // Verificar localização anterior para rastreamento
-    const localizacaoAnterior = await query(`
-      SELECT piquete FROM localizacoes_animais 
-      WHERE animal_id = $1 AND data_saida = $2
+    // Verificar se já existe uma localização ativa para este animal
+    const localizacaoAtiva = await query(`
+      SELECT id, piquete FROM localizacoes_animais 
+      WHERE animal_id = $1 AND data_saida IS NULL
       ORDER BY data_entrada DESC 
       LIMIT 1
-    `, [animal_id, data_entrada])
+    `, [animal_id])
 
-    // Criar nova localização
-    const result = await query(`
-      INSERT INTO localizacoes_animais (
-        animal_id, piquete, data_entrada, motivo_movimentacao, 
-        observacoes, usuario_responsavel
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `, [
-      animal_id,
-      piquete,
-      data_entrada,
-      motivo_movimentacao || null,
-      observacoes || null,
-      usuario_responsavel || null
-    ])
+    let result
 
-    // Registrar operação no sistema de lotes
-    try {
-      const animal = animalResult.rows[0]
-      const piquete_origem = localizacaoAnterior.rows[0]?.piquete || null
+    if (localizacaoAtiva.rows.length > 0) {
+      // Se já existe uma localização ativa, atualizar ela em vez de criar nova
+      const localizacaoId = localizacaoAtiva.rows[0].id
+      const piquete_origem = localizacaoAtiva.rows[0].piquete
       
-      await LoteTracker.registrarLocalizacao({
+      // Se o piquete é o mesmo, não fazer nada
+      if (piquete_origem === piquete) {
+        return res.status(200).json({
+          success: true,
+          data: localizacaoAtiva.rows[0],
+          message: 'Animal já está neste piquete'
+        })
+      }
+      
+      // Finalizar a localização atual
+      await query(`
+        UPDATE localizacoes_animais 
+        SET data_saida = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
+      `, [data_entrada, localizacaoId])
+      
+      // Criar nova localização
+      result = await query(`
+        INSERT INTO localizacoes_animais (
+          animal_id, piquete, data_entrada, motivo_movimentacao, 
+          observacoes, usuario_responsavel
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `, [
         animal_id,
-        animal_identificacao: `${animal.serie}-${animal.rg}`,
-        piquete_origem,
-        piquete_destino: piquete,
-        motivo: motivo_movimentacao || 'Localização registrada',
-        usuario: usuario_responsavel || 'Sistema',
-        req
-      })
-    } catch (trackError) {
-      logger.error('Erro ao registrar no sistema de lotes:', trackError)
-      // Não falhar a operação principal por erro no tracking
+        piquete,
+        data_entrada,
+        motivo_movimentacao || null,
+        observacoes || null,
+        usuario_responsavel || null
+      ])
+      
+      // Registrar operação no sistema de lotes
+      try {
+        const animal = animalResult.rows[0]
+        
+        await LoteTracker.registrarLocalizacao({
+          animal_id,
+          animal_identificacao: `${animal.serie}-${animal.rg}`,
+          piquete_origem,
+          piquete_destino: piquete,
+          motivo: motivo_movimentacao || 'Localização registrada',
+          usuario: usuario_responsavel || 'Sistema',
+          req
+        })
+      } catch (trackError) {
+        logger.error('Erro ao registrar no sistema de lotes:', trackError)
+      }
+      
+    } else {
+      // Não existe localização ativa, criar nova
+      result = await query(`
+        INSERT INTO localizacoes_animais (
+          animal_id, piquete, data_entrada, motivo_movimentacao, 
+          observacoes, usuario_responsavel
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `, [
+        animal_id,
+        piquete,
+        data_entrada,
+        motivo_movimentacao || null,
+        observacoes || null,
+        usuario_responsavel || null
+      ])
+      
+      // Registrar operação no sistema de lotes
+      try {
+        const animal = animalResult.rows[0]
+        
+        await LoteTracker.registrarLocalizacao({
+          animal_id,
+          animal_identificacao: `${animal.serie}-${animal.rg}`,
+          piquete_origem: null,
+          piquete_destino: piquete,
+          motivo: motivo_movimentacao || 'Localização inicial',
+          usuario: usuario_responsavel || 'Sistema',
+          req
+        })
+      } catch (trackError) {
+        logger.error('Erro ao registrar no sistema de lotes:', trackError)
+      }
     }
 
     logger.info(`Nova localização criada para animal ${animalResult.rows[0].serie}${animalResult.rows[0].rg}`)
@@ -193,6 +258,27 @@ async function handlePost(req, res) {
 
   } catch (error) {
     logger.error('Erro ao criar localização:', error)
+    
+    // Se for erro de constraint UNIQUE, tentar remover a constraint e tentar novamente
+    if (error.message && error.message.includes('localizacoes_animais_animal_id_key')) {
+      try {
+        logger.info('Tentando remover constraint UNIQUE problemática...')
+        await query(`
+          ALTER TABLE localizacoes_animais 
+          DROP CONSTRAINT IF EXISTS localizacoes_animais_animal_id_key
+        `)
+        logger.info('Constraint removida, tente novamente')
+        
+        return res.status(409).json({ 
+          error: 'Constraint UNIQUE foi removida. Por favor, tente novamente.',
+          details: 'A constraint que impedia múltiplas localizações foi corrigida.',
+          retry: true
+        })
+      } catch (dropError) {
+        logger.error('Erro ao remover constraint:', dropError)
+      }
+    }
+    
     res.status(500).json({ 
       error: 'Erro ao criar localização',
       details: error.message 

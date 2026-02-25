@@ -27,9 +27,17 @@ export default function HistoricoMovimentacoes() {
     }
   }, [mounted, filtroAvancado])
 
-  // Calcular resumo por piquete (apenas localizações ativas - sem data_saida)
+  // Considerar ativo: sem data_saida OU datas inconsistentes (data_saida < data_entrada, ex: erro de importação)
+  const ehLocalizacaoAtiva = (m) => {
+    if (!m.data_saida) return true
+    const de = m.data_entrada ? new Date(m.data_entrada) : null
+    const ds = new Date(m.data_saida)
+    return de && !isNaN(ds.getTime()) && ds < de
+  }
+
+  // Calcular resumo por piquete (localizações ativas)
   const resumoPorPiquete = React.useMemo(() => {
-    const ativos = movimentacoes.filter(m => !m.data_saida)
+    const ativos = movimentacoes.filter(ehLocalizacaoAtiva)
     const porPiquete = {}
     ativos.forEach(mov => {
       const piquete = mov.piquete || 'Sem local'
@@ -50,7 +58,7 @@ export default function HistoricoMovimentacoes() {
   }, [movimentacoes])
 
   const totais = React.useMemo(() => {
-    const ativos = movimentacoes.filter(m => !m.data_saida)
+    const ativos = movimentacoes.filter(ehLocalizacaoAtiva)
     const machos = ativos.filter(m => (m.sexo || '').toLowerCase().includes('macho') || (m.sexo || '').toLowerCase() === 'm').length
     const femeas = ativos.filter(m => (m.sexo || '').toLowerCase().includes('fêmea') || (m.sexo || '').toLowerCase().includes('femea') || (m.sexo || '').toLowerCase() === 'f').length
     return { total: ativos.length, machos, femeas }
@@ -58,8 +66,8 @@ export default function HistoricoMovimentacoes() {
 
   const animaisDoPiquete = React.useMemo(() => {
     if (!piqueteModal) return []
-    if (piqueteModal === '__TODOS__') return movimentacoes.filter(m => !m.data_saida)
-    return movimentacoes.filter(m => !m.data_saida && (m.piquete || 'Sem local') === piqueteModal)
+    if (piqueteModal === '__TODOS__') return movimentacoes.filter(ehLocalizacaoAtiva)
+    return movimentacoes.filter(m => ehLocalizacaoAtiva(m) && (m.piquete || 'Sem local') === piqueteModal)
   }, [movimentacoes, piqueteModal])
 
   const exportarPiqueteExcel = async () => {
@@ -155,9 +163,10 @@ export default function HistoricoMovimentacoes() {
           movimentacoesData = movimentacoesData.filter(mov => {
             const serie = mov.serie || ''
             const rg = mov.rg || ''
+            const animalId = mov.animal_id ? String(mov.animal_id) : ''
             const piquete = mov.piquete || ''
             const motivo = mov.motivo_movimentacao || ''
-            const searchText = `${serie} ${rg} ${piquete} ${motivo}`.toLowerCase()
+            const searchText = `${serie} ${rg} ${animalId} ${piquete} ${motivo}`.toLowerCase()
             return searchText.includes(filtro.toLowerCase())
           })
         }
@@ -209,7 +218,7 @@ export default function HistoricoMovimentacoes() {
               type="text"
               value={filtro}
               onChange={(e) => setFiltro(e.target.value)}
-              placeholder="Buscar por animal, piquete ou motivo..."
+              placeholder="Buscar por ID, animal, piquete ou motivo..."
               className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
             />
           </div>

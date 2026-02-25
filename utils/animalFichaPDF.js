@@ -462,7 +462,7 @@ export async function generateAnimalFichaPDF(animals, examesAndrologicos = {}, r
         const dataExame = formatDate(exame.data_exame || exame.data)
         yPosition += addText(`Data: ${dataExame}`, margin, yPosition, { maxWidth: contentWidth / 2 })
         
-        // CE (Circunferência Escrotal)
+        // C.E
         if (exame.ce) {
           yPosition += addText(`CE: ${exame.ce} cm`, margin + contentWidth / 2, yPosition - 5, { maxWidth: contentWidth / 2 })
         }

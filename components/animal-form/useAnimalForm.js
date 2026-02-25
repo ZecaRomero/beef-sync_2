@@ -33,6 +33,7 @@ export default function useAnimalForm(animal, isOpen, onClose) {
     valorVenda: '',
     abczg: '',
     deca: '',
+    situacaoAbcz: '',
     observacoes: '',
     pesoEntrada: '',
     dataEntrada: new Date().toISOString().split('T')[0],
@@ -198,6 +199,7 @@ export default function useAnimalForm(animal, isOpen, onClose) {
           observacoes: animal.observacoes || '',
           abczg: animal.abczg || '',
           deca: animal.deca || '',
+          situacaoAbcz: animal.situacao_abcz || animal.situacaoAbcz || '',
           // Ensure arrays/objects don't crash if missing
         });
       } else {

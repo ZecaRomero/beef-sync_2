@@ -7,7 +7,11 @@ import { ToastProvider } from "../contexts/ToastContext";
 import { AppProvider } from "../contexts/AppContext";
 import ErrorBoundary from "../components/ErrorBoundary";
 import DynamicFavicon from "../components/ui/DynamicFavicon";
+import MaintenanceOverlay from "../components/MaintenanceOverlay";
+import MobileIdentificationOverlay from "../components/MobileIdentificationOverlay";
+import DevLiveReload from "../components/DevLiveReload";
 import logger from "../utils/logger";
+
 
 // Debug para interceptar erros de total_tokens
 if (typeof window !== 'undefined') {
@@ -38,6 +42,36 @@ export default function App({ Component, pageProps }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Registrar acesso para monitoramento (uma vez por sessão, todas as páginas)
+      const sessionKey = 'beef_access_logged'
+      if (!sessionStorage.getItem(sessionKey)) {
+        const hostname = window.location.hostname
+        const userType = hostname === 'localhost' || hostname === '127.0.0.1' ? 'developer' :
+          hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.') ? 'network' : 'external'
+        let userName = userType === 'developer' ? 'Zeca' : userType === 'network' ? 'Usuário da Rede' : 'Usuário Externo'
+        let telefone = null
+        try {
+          const id = localStorage.getItem('beef_usuario_identificado')
+          if (id) {
+            const { nome, telefone: tel } = JSON.parse(id)
+            if (nome) userName = nome
+            if (tel) telefone = tel
+          }
+        } catch (_) {}
+        fetch('/api/access-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userName,
+            userType,
+            ipAddress: hostname,
+            hostname,
+            userAgent: navigator.userAgent,
+            telefone,
+            action: 'Acesso ao Sistema'
+          })
+        }).then(() => sessionStorage.setItem(sessionKey, '1')).catch(() => {})
+      }
       // Limpeza preventiva de dados corrompidos
       try {
         const keys = Object.keys(localStorage);
@@ -93,8 +127,8 @@ export default function App({ Component, pageProps }) {
     }
   };
 
-  // Pages that don't need layout (login, 404, 500, consulta celular, ficha read-only)
-  const noLayoutPages = ['/login', '/404', '/500', '/a'];
+  // Pages that don't need layout (login, 404, 500, consulta celular, ficha read-only, identificar)
+  const noLayoutPages = ['/login', '/404', '/500', '/a', '/identificar', '/mobile-relatorios'];
   const isConsultaAnimal = router.pathname === '/consulta-animal/[id]';
   const useLayout = !noLayoutPages.includes(router.pathname) && !isConsultaAnimal;
 
@@ -102,6 +136,9 @@ export default function App({ Component, pageProps }) {
     <ErrorBoundary>
       <div className={darkMode ? "dark" : ""}>
         <DynamicFavicon />
+        <MaintenanceOverlay />
+        <MobileIdentificationOverlay />
+        <DevLiveReload />
         <ToastProvider>
           <AppProvider>
             {useLayout ? (

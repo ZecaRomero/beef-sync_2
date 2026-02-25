@@ -112,7 +112,7 @@ export default asyncHandler(async function handler(req, res) {
         
       case 'CE':
         if (animal.sexo !== 'Macho') {
-          return sendError(res, 'CE (Circunferência Escrotal) só pode ser registrado para machos', 400)
+          return sendError(res, 'C.E só pode ser registrado para machos', 400)
         }
         descricao = `CE: ${ce} cm`
         ocorrenciaData.observacoes = `Circunferência Escrotal: ${ce} cm${observacoes ? '. ' + observacoes : ''}`

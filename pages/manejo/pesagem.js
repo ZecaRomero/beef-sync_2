@@ -675,15 +675,16 @@ export default function Pesagem() {
     if (!s) return 'Não informado'
     // CONFINAÇÃO e variações normalizam para CONFINA
     const sNorm = s.replace(/CONFINAÇÃO/gi, 'CONFINA').replace(/CONFINACAO/gi, 'CONFINA')
-    const m = sNorm.match(/(PIQUETE\s*\d+|PROJETO\s*[\dA-Za-z\-]+|LOTE\s*\d+|CONFINA\w*|GUARITA|CABANHA|PISTA\s*\d*)/i)
+    const m = sNorm.match(/(PIQUETE\s*\d+|PIQUETE\s*(CABANHA|CONF|GUARITA|PISTA)|PROJETO\s*[\dA-Za-z\-]+|LOTE\s*\d+|CONFINA\w*|GUARITA|CABANHA|PISTA\s*\d*)/i)
     if (m) {
       let loc = m[1].trim().toUpperCase().replace(/\s+/g, ' ')
       if (/^CONFINA/.test(loc)) loc = 'CONFINA'
       // PIQUETE X e PROJETO X → PROJETO X (agrupar mesmo local)
       if (/^PIQUETE\s+\d+$/.test(loc)) loc = loc.replace(/^PIQUETE\s+/i, 'PROJETO ')
-      return loc
+      // Só retornar se for formato válido (evita NACION 15397, NERO DO MORRO, etc.)
+      if (/^PIQUETE\s+(\d+|CABANHA|CONF|GUARITA|PISTA)$/i.test(loc) || /^PROJETO\s+[\dA-Za-z\-]+$/i.test(loc) || /^CONFINA$/i.test(loc) || /^(GUARITA|CABANHA|PISTA\s*\d*|CONF)$/i.test(loc)) return loc
     }
-    return s.length <= 35 ? s.toUpperCase() : s.substring(0, 35).toUpperCase()
+    return 'Não informado'
   }
 
   const resumoPorSexo = [
@@ -2142,7 +2143,7 @@ export default function Pesagem() {
                 <ul className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
                   <li>• Selecione as colunas correspondentes do seu Excel</li>
                 <li>• Identificação (Animal ou RG/PGN) e Peso são obrigatórios</li>
-                  <li>• CE (Circunferência Escrotal) só para machos</li>
+                  <li>• CE só para machos</li>
                   <li>• Os animais devem estar cadastrados no sistema</li>
                 </ul>
               </div>

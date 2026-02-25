@@ -12,7 +12,9 @@ import {
   ChevronDownIcon,
   ArrowRightOnRectangleIcon,
   UserIcon,
-  CogIcon
+  CogIcon,
+  EyeIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import { cn } from '../../lib/utils'
 import Button from '../ui/Button'
@@ -46,7 +48,8 @@ export default function ModernHeader({
     loading,
     unreadCount,
     markAsRead,
-    markAllAsRead
+    markAllAsRead,
+    deleteNotification
   } = useNotifications()
 
   // Calcular posição do dropdown quando abrir
@@ -198,7 +201,8 @@ export default function ModernHeader({
       '/custos': 'Custos',
       '/reports': 'Relatórios',
       '/protocol-editor': 'Protocolos',
-      '/settings': 'Configurações'
+      '/settings': 'Configurações',
+      '/admin/feedbacks': 'Feedbacks'
     }
     return titles[path] || 'Beef-Sync'
   }
@@ -381,26 +385,53 @@ export default function ModernHeader({
                       key={notification.id}
                       className={cn(
                         'p-4 border-b border-gray-100 dark:border-gray-700 last:border-b-0',
-                        'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors',
-                        !notification.read && 'bg-blue-50 dark:bg-blue-900/10'
+                        'hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors',
+                        !(notification.lida ?? notification.read) && 'bg-blue-50 dark:bg-blue-900/10'
                       )}
-                      onClick={() => markAsRead(notification.id)}
                     >
-                      <div className="flex items-start space-x-3">
+                      <div className="flex items-start gap-3">
                         <div className={cn(
                           'flex-shrink-0 w-2 h-2 rounded-full mt-2',
-                          notification.read ? 'bg-gray-300' : 'bg-blue-500'
+                          (notification.lida ?? notification.read) ? 'bg-gray-300' : 'bg-blue-500'
                         )} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {notification.title}
+                            {notification.titulo ?? notification.title}
                           </p>
                           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            {notification.message}
+                            {notification.mensagem ?? notification.message}
                           </p>
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                            {new Date(notification.createdAt).toLocaleString()}
+                            {notification.timestamp ?? (notification.created_at || notification.createdAt ? new Date(notification.created_at || notification.createdAt).toLocaleString('pt-BR') : '')}
                           </p>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                markAsRead(notification.id)
+                                if (notification.tipo === 'feedback') {
+                                  router.push('/admin/feedbacks')
+                                  setShowNotifications(false)
+                                }
+                              }}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium flex items-center gap-1"
+                            >
+                              <EyeIcon className="h-3.5 w-3.5" />
+                              Ler
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm('Excluir esta notificação?')) {
+                                  deleteNotification(notification.id)
+                                }
+                              }}
+                              className="text-xs text-red-600 dark:text-red-400 hover:underline font-medium flex items-center gap-1"
+                            >
+                              <TrashIcon className="h-3.5 w-3.5" />
+                              Excluir
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

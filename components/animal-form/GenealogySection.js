@@ -84,6 +84,26 @@ export default function GenealogySection({ formData, updateField }) {
           </div>
         </div>
       </div>
+
+      {/* Situação ABCZ */}
+      <div className="space-y-2">
+        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
+          Situação ABCZ
+        </h5>
+        <select
+          value={formData.situacaoAbcz || ''}
+          onChange={(e) => updateField('situacaoAbcz', e.target.value)}
+          className="input-field"
+        >
+          <option value="">Selecione...</option>
+          <option value="OK para RG">OK para RG</option>
+          <option value="Possui RGD">Possui RGD</option>
+          <option value="Possui RGN">Possui RGN</option>
+          <option value="Pendente">Pendente</option>
+          <option value="Não informado">Não informado</option>
+        </select>
+        <p className="text-xs text-gray-500 mt-1">Status do registro na ABCZ (RG, RGD, RGN)</p>
+      </div>
     </div>
   );
 }

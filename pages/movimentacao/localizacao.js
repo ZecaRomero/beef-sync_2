@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { 
   MagnifyingGlassIcon, 
   MapPinIcon, 
@@ -57,6 +57,7 @@ export default function LocalizacaoAnimais() {
   })
   const [criandoPiquete, setCriandoPiquete] = useState(false)
   const [selectedAnimalsForBatch, setSelectedAnimalsForBatch] = useState([])
+  const [modalListLimit, setModalListLimit] = useState(80) // Limite inicial para performance (evita renderizar 1800+ itens)
   const [batchMoveData, setBatchMoveData] = useState({
     piquete_destino: '',
     data_movimentacao: new Date().toISOString().split('T')[0],
@@ -115,6 +116,11 @@ export default function LocalizacaoAnimais() {
     setCurrentPage(1)
   }, [filtro, filtroAvancado])
 
+  // Resetar limite da lista do modal quando abrir
+  useEffect(() => {
+    if (showModal && modalType === 'lote') setModalListLimit(80)
+  }, [showModal, modalType])
+
   // Função para formatar data sem problemas de timezone
   const formatarDataBR = (dataString) => {
     if (!dataString) return ''
@@ -139,16 +145,27 @@ export default function LocalizacaoAnimais() {
     }
   }
 
-  // Função para obter a localização mais recente de um animal
-  // Inclui fallback para piquete_atual/pasto_atual (importação Excel)
-  const getLocalizacaoAtual = (animalId, animal = null) => {
-    const localizacoesDoAnimal = localizacoes
-      .filter(loc => loc.animal_id === animalId)
-      .sort((a, b) => new Date(b.data_entrada) - new Date(a.data_entrada))
-    
-    const locDaTabela = localizacoesDoAnimal.find(loc => !loc.data_saida) || localizacoesDoAnimal[0]
+  // Mapa animal_id -> localização atual (memoizado para performance com muitos animais)
+  const mapaLocalizacaoPorAnimal = useMemo(() => {
+    const mapa = new Map()
+    const porAnimal = {}
+    for (const loc of localizacoes) {
+      const id = loc.animal_id
+      if (!porAnimal[id]) porAnimal[id] = []
+      porAnimal[id].push(loc)
+    }
+    for (const [id, locs] of Object.entries(porAnimal)) {
+      locs.sort((a, b) => new Date(b.data_entrada) - new Date(a.data_entrada))
+      const ativa = locs.find(l => !l.data_saida) || locs[0]
+      mapa.set(Number(id), ativa)
+    }
+    return mapa
+  }, [localizacoes])
+
+  // Função para obter a localização mais recente de um animal (usa mapa memoizado)
+  const getLocalizacaoAtual = useCallback((animalId, animal = null) => {
+    const locDaTabela = mapaLocalizacaoPorAnimal.get(animalId)
     if (locDaTabela) return locDaTabela
-    
     // Fallback: localização do cadastro do animal (importação Excel usa piquete_atual)
     const localDoAnimal = animal?.piquete_atual || animal?.piqueteAtual || animal?.pasto_atual || animal?.pastoAtual
     if (animal && localDoAnimal) {
@@ -160,7 +177,7 @@ export default function LocalizacaoAnimais() {
       }
     }
     return null
-  }
+  }, [mapaLocalizacaoPorAnimal])
 
   // Função para criar nova localização
   const criarLocalizacao = async () => {
@@ -466,10 +483,29 @@ export default function LocalizacaoAnimais() {
         console.warn('Erro ao carregar locais da API:', error)
       }
 
+      // Whitelist: exibir APENAS locais que são piquetes/projetos válidos.
+      // Nomes de touros (NACION 15397, NERO DO MORRO, NORTICO - CJCJ 15236, etc.) são filtrados.
+      const ehPiqueteOuProjetoValido = (nome) => {
+        if (!nome || typeof nome !== 'string') return false
+        const n = nome.trim()
+        if (!n || /^(VAZIO|NÃO INFORMADO|NAO INFORMADO|-)$/i.test(n)) return false
+        // PIQUETE 1, PIQUETE 10, PIQUETE CABANHA, PIQUETE CONF, PIQUETE GUARITA, PIQUETE PISTA
+        if (/^PIQUETE\s+(\d+|CABANHA|CONF|GUARITA|PISTA)$/i.test(n)) return true
+        // PROJETO 10, PROJETO 5A, PROJETO 33/1, PROJETO CONF, etc.
+        if (/^PROJETO\s+[\dA-Za-z\-/]+$/i.test(n)) return true
+        // CONFINA (confinamento - comum em observações de pesagem)
+        if (/^CONFINA$/i.test(n)) return true
+        // Abreviações de importação: CABANHA, GUARITA, PISTA, CONF
+        if (/^(CABANHA|GUARITA|PISTA|CONF)$/i.test(n)) return true
+        return false
+      }
+
+      const piquetesFiltrados = piquetesList.filter(ehPiqueteOuProjetoValido)
+
       // Ordenar por nome
-      piquetesList.sort((a, b) => a.localeCompare(b))
+      piquetesFiltrados.sort((a, b) => a.localeCompare(b))
       
-      setPiquetesDisponiveis(piquetesList)
+      setPiquetesDisponiveis(piquetesFiltrados)
     } catch (error) {
       console.error('Erro ao carregar locais:', error)
       setPiquetesDisponiveis([])
@@ -691,59 +727,55 @@ export default function LocalizacaoAnimais() {
     }
   }
 
-  // Filtrar animais de forma segura
-  const animaisFiltrados = animais.filter(animal => {
-    if (!animal || !filtro) return true
-    
+  // Filtrar animais de forma segura (memoizado para performance)
+  const animaisFiltrados = useMemo(() => {
+    if (!filtro || !filtro.trim()) return animais
     const termo = filtro.toLowerCase().trim()
-    const localizacaoAtual = getLocalizacaoAtual(animal.id, animal)
-    
-    // Criar identificador completo combinando série e RG
-    const identificadorCompleto = `${animal.serie || ''} ${animal.rg || ''}`.toLowerCase().trim()
-    const identificadorSemEspaco = `${animal.serie || ''}${animal.rg || ''}`.toLowerCase()
-    const serie = (animal.serie || '').toLowerCase()
-    const rg = (animal.rg || '').toLowerCase()
-    const raca = (animal.raca || '').toLowerCase()
-    const piquete = (localizacaoAtual?.piquete || animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual || '').toLowerCase()
-    
-    // Verificar se o termo está em qualquer parte do identificador ou campos
-    return (
-      identificadorCompleto.includes(termo) ||
-      identificadorSemEspaco.includes(termo.replace(/\s+/g, '')) ||
-      serie.includes(termo) ||
-      rg.includes(termo) ||
-      raca.includes(termo) ||
-      piquete.includes(termo)
-    )
-  })
+    return animais.filter(animal => {
+      if (!animal) return false
+      const localizacaoAtual = mapaLocalizacaoPorAnimal.get(animal.id) || (animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual ? { piquete: animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual } : null)
+      const identificadorCompleto = `${animal.serie || ''} ${animal.rg || ''}`.toLowerCase().trim()
+      const identificadorSemEspaco = `${animal.serie || ''}${animal.rg || ''}`.toLowerCase()
+      const serie = (animal.serie || '').toLowerCase()
+      const rg = (animal.rg || '').toLowerCase()
+      const raca = (animal.raca || '').toLowerCase()
+      const piquete = (localizacaoAtual?.piquete || animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual || '').toLowerCase()
+      return (
+        identificadorCompleto.includes(termo) ||
+        identificadorSemEspaco.includes(termo.replace(/\s+/g, '')) ||
+        serie.includes(termo) ||
+        rg.includes(termo) ||
+        raca.includes(termo) ||
+        piquete.includes(termo)
+      )
+    })
+  }, [animais, filtro, mapaLocalizacaoPorAnimal])
 
-  // Filtrar animais para o modal de seleção (usa filtroModalAnimais)
-  const animaisFiltradosModal = animais.filter(animal => {
-    if (!animal || !filtroModalAnimais) return true
-    
+  // Filtrar animais para o modal de seleção (memoizado para performance)
+  const animaisFiltradosModal = useMemo(() => {
+    if (!filtroModalAnimais || !filtroModalAnimais.trim()) return animais
     const termo = filtroModalAnimais.toLowerCase().trim()
-    const localizacaoAtual = getLocalizacaoAtual(animal.id, animal)
-    
-    // Criar identificador completo combinando série e RG
-    const identificadorCompleto = `${animal.serie || ''} ${animal.rg || ''}`.toLowerCase().trim()
-    const identificadorSemEspaco = `${animal.serie || ''}${animal.rg || ''}`.toLowerCase()
-    const serie = (animal.serie || '').toLowerCase()
-    const rg = (animal.rg || '').toLowerCase()
-    const raca = (animal.raca || '').toLowerCase()
-    const sexo = (animal.sexo || '').toLowerCase()
-    const piquete = (localizacaoAtual?.piquete || animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual || '').toLowerCase()
-    
-    // Verificar se o termo está em qualquer parte do identificador ou campos
-    return (
-      identificadorCompleto.includes(termo) ||
-      identificadorSemEspaco.includes(termo.replace(/\s+/g, '')) ||
-      serie.includes(termo) ||
-      rg.includes(termo) ||
-      raca.includes(termo) ||
-      sexo.includes(termo) ||
-      piquete.includes(termo)
-    )
-  })
+    return animais.filter(animal => {
+      if (!animal) return false
+      const localizacaoAtual = mapaLocalizacaoPorAnimal.get(animal.id) || (animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual ? { piquete: animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual } : null)
+      const identificadorCompleto = `${animal.serie || ''} ${animal.rg || ''}`.toLowerCase().trim()
+      const identificadorSemEspaco = `${animal.serie || ''}${animal.rg || ''}`.toLowerCase()
+      const serie = (animal.serie || '').toLowerCase()
+      const rg = (animal.rg || '').toLowerCase()
+      const raca = (animal.raca || '').toLowerCase()
+      const sexo = (animal.sexo || '').toLowerCase()
+      const piquete = (localizacaoAtual?.piquete || animal.piquete_atual || animal.piqueteAtual || animal.pasto_atual || animal.pastoAtual || '').toLowerCase()
+      return (
+        identificadorCompleto.includes(termo) ||
+        identificadorSemEspaco.includes(termo.replace(/\s+/g, '')) ||
+        serie.includes(termo) ||
+        rg.includes(termo) ||
+        raca.includes(termo) ||
+        sexo.includes(termo) ||
+        piquete.includes(termo)
+      )
+    })
+  }, [animais, filtroModalAnimais, mapaLocalizacaoPorAnimal])
 
   // Paginação
   const indexOfLastItem = currentPage * itemsPerPage
@@ -1647,7 +1679,8 @@ export default function LocalizacaoAnimais() {
                     onClick={() => {
                       setShowModal(false)
                       setSelectedAnimalsForBatch([])
-                      setFiltroModalAnimais('') // Limpar filtro do modal
+                      setFiltroModalAnimais('')
+                      setModalListLimit(80)
                       setBatchMoveData({
                         piquete_destino: '',
                         data_movimentacao: new Date().toISOString().split('T')[0],
@@ -1832,7 +1865,11 @@ export default function LocalizacaoAnimais() {
                     </div>
 
                     <div className="max-h-80 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 bg-gray-50 dark:bg-gray-800/50">
-                      {animaisFiltradosModal.filter(animal => animal.situacao === 'Ativo').length === 0 ? (
+                      {(() => {
+                        const ativos = animaisFiltradosModal.filter(animal => animal.situacao === 'Ativo')
+                        const exibidos = ativos.slice(0, modalListLimit)
+                        const restantes = ativos.length - modalListLimit
+                        return ativos.length === 0 ? (
                         <div className="text-center py-8">
                           <div className="text-4xl mb-2">🔍</div>
                           <p className="text-gray-500 dark:text-gray-400">
@@ -1850,8 +1887,9 @@ export default function LocalizacaoAnimais() {
                           )}
                         </div>
                       ) : (
-                        animaisFiltradosModal.filter(animal => animal.situacao === 'Ativo').map(animal => {
-                        const localizacaoAtual = getLocalizacaoAtual(animal.id, animal)
+                        <>
+                        {exibidos.map(animal => {
+                        const localizacaoAtual = mapaLocalizacaoPorAnimal.get(animal.id) || getLocalizacaoAtual(animal.id, animal)
                         const isSelected = selectedAnimalsForBatch.includes(animal.id)
                         
                         return (
@@ -1903,8 +1941,19 @@ export default function LocalizacaoAnimais() {
                             </div>
                           </div>
                         )
-                        })
-                      )}
+                        })}
+                        {restantes > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setModalListLimit(prev => prev + 100)}
+                            className="w-full py-3 mt-2 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-colors"
+                          >
+                            Carregar mais {Math.min(100, restantes)} de {restantes} restantes
+                          </button>
+                        )}
+                        </>
+                      )
+                      })()}
                     </div>
                     
                     <div className="mt-4 flex flex-wrap gap-2">

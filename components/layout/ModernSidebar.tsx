@@ -150,6 +150,7 @@ const navigation: NavigationItem[] = [
     icon: EyeIcon,
     color: 'text-violet-600 dark:text-violet-400',
     children: [
+      { name: 'Acessos ao Sistema', href: '/monitoramento/acessos', description: 'Acessos, mobile, bloquear e manutenção' },
       { name: 'Alertas Inteligentes', href: '/monitoramento/alertas', description: 'Notificações automáticas' },
       { name: 'Performance do Rebanho', href: '/monitoramento/performance', description: 'Indicadores de performance' },
       { name: 'Análise de Tendências', href: '/monitoramento/tendencias', description: 'Análise preditiva' },
@@ -217,7 +218,8 @@ const navigation: NavigationItem[] = [
       { name: 'Configurações', href: '/settings', description: 'Configurar sistema' },
       { name: 'Backup', href: '/backup', description: 'Backup de dados' },
       { name: 'Usuários', href: '/sistema/usuarios', description: 'Gestão de usuários' },
-      { name: 'Permissões', href: '/sistema/permissoes', description: 'Controle de acesso' }
+      { name: 'Permissões', href: '/sistema/permissoes', description: 'Controle de acesso' },
+      { name: '💬 Feedbacks', href: '/admin/feedbacks', description: 'Feedbacks dos usuários mobile' }
     ]
   },
   {

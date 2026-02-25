@@ -72,7 +72,8 @@ class AnimalDataManager {
       'valorReal': 'valor_real',
       'avoMaterno': 'avo_materno',
       'localNascimento': 'local_nascimento',
-      'pastoAtual': 'pasto_atual'
+      'pastoAtual': 'pasto_atual',
+      'situacaoAbcz': 'situacao_abcz'
     }
     return mapeamentos[campoFrontend] || campoFrontend
   }
@@ -91,6 +92,7 @@ class AnimalDataManager {
       'avo_materno': 'avoMaterno',
       'local_nascimento': 'localNascimento',
       'pasto_atual': 'pastoAtual',
+      'situacao_abcz': 'situacaoAbcz',
       'created_at': 'createdAt',
       'updated_at': 'updatedAt'
     }
@@ -178,7 +180,7 @@ class AnimalDataManager {
           'tipo_nascimento', 'dificuldade_parto', 'meses', 'situacao', 
           'pai', 'mae', 'avo_materno', 'receptora', 'is_fiv', 
           'custo_total', 'valor_venda', 'valor_real', 'veterinario', 
-          'abczg', 'deca', 'observacoes', 'boletim', 'local_nascimento', 'pasto_atual',
+          'abczg', 'deca', 'situacao_abcz', 'observacoes', 'boletim', 'local_nascimento', 'pasto_atual',
           'serie_pai', 'rg_pai', 'serie_mae', 'rg_mae'
         ]
 

@@ -1,5 +1,7 @@
 @echo off
 title Beef Sync - Sistema Unificado
+set "BRAVE=C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
+if not exist "%BRAVE%" set "BRAVE=%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe"
 echo.
 echo ========================================
 echo    BEEF SYNC - Sistema de Gestao
@@ -20,10 +22,11 @@ if not errorlevel 1 (
     
     echo 🌐 URLs disponíveis:
     echo    • Local:   http://localhost:3020
-    echo    • Rede:    http://%IP%:3020
+    echo    • Celular: http://%IP%:3020/a
     echo.
-    echo Abrindo navegador...
-    start http://localhost:3020
+    echo Abrindo navegador Brave...
+    start "" "%BRAVE%" "http://localhost:3020"
+    start "" "%BRAVE%" --new-window --window-size=390,844 "http://localhost:3020/a"
     goto :end
 )
 
@@ -43,15 +46,17 @@ echo 🚀 Iniciando servidor na porta 3020...
 echo.
 echo 🌐 URLs que estarão disponíveis:
 echo    • Local:   http://localhost:3020
-echo    • Rede:    http://%IP%:3020
+echo    • Celular: http://%IP%:3020/a
+echo.
+echo 📱 No celular: conecte na MESMA WiFi e abra o link acima
 echo.
 echo 📌 O sistema detecta automaticamente o tipo de acesso:
 echo    • localhost = Acesso total (Zeca)
 echo    • 192.168.x.x = Acesso limitado (Rede)
 echo.
 
-REM Iniciar servidor
-start "Beef Sync Server" cmd /c "npm run dev"
+REM Iniciar servidor (dev:network = aceita celular na mesma WiFi)
+start "Beef Sync Server" cmd /c "npm run dev:network"
 
 echo ⏳ Aguardando servidor inicializar...
 timeout /t 8 /nobreak >nul
@@ -62,15 +67,16 @@ powershell -NoProfile -Command "$limit=15; for($i=0;$i -lt $limit;$i++){ if((Tes
 if %errorlevel%==0 (
     echo ✅ Servidor online!
     echo.
-    echo 🌐 Abrindo navegador...
-    start http://localhost:3020
+    echo 🌐 Abrindo navegador Brave...
+    start "" "%BRAVE%" "http://localhost:3020"
+    start "" "%BRAVE%" --new-window --window-size=390,844 "http://localhost:3020/a"
     echo.
     echo ========================================
     echo ✅ Sistema iniciado com sucesso!
     echo.
     echo 📌 Acesso disponível em:
     echo    • Local:   http://localhost:3020
-    echo    • Rede:    http://%IP%:3020
+    echo    • Celular: http://%IP%:3020/a
     echo.
     echo 🔐 Permissões:
     echo    • localhost = Acesso total (pode excluir, backup, etc)
@@ -79,7 +85,8 @@ if %errorlevel%==0 (
 ) else (
     echo ⚠️ Servidor pode estar iniciando...
     echo    Abrindo navegador (aguarde alguns segundos se necessário)
-    start http://localhost:3020
+    start "" "%BRAVE%" "http://localhost:3020"
+    start "" "%BRAVE%" --new-window --window-size=390,844 "http://localhost:3020/a"
     echo.
     echo ⏳ Se a página não carregar, aguarde alguns segundos.
     echo    O servidor está iniciando em segundo plano.

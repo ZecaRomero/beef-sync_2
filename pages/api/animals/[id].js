@@ -215,10 +215,50 @@ async function handleGet(req, res, id) {
   if (animal.serie && racasPorSerie[animal.serie] && animal.raca !== racasPorSerie[animal.serie]) {
     animal.raca = racasPorSerie[animal.serie]
   }
+
+  // Enriquecer com série e RG da mãe quando não estiverem preenchidos
+  if (animal.mae && !(animal.serie_mae || animal.rg_mae)) {
+    try {
+      const { query: dbQuery } = require('../../../lib/database')
+      let maeResult = await dbQuery(
+        `SELECT id, serie, rg, nome FROM animais WHERE UPPER(TRIM(nome)) = UPPER(TRIM($1)) LIMIT 1`,
+        [animal.mae]
+      )
+      if (maeResult.rows.length === 0) {
+        maeResult = await dbQuery(
+          `SELECT id, serie, rg, nome FROM animais WHERE UPPER(nome) LIKE UPPER($1) LIMIT 1`,
+          [`%${String(animal.mae).trim()}%`]
+        )
+      }
+      if (maeResult.rows.length > 0) {
+        const mae = maeResult.rows[0]
+        animal.serie_mae = mae.serie
+        animal.rg_mae = mae.rg
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar série/RG da mãe:', e)
+    }
+  }
+
+  // Garantir localizacoes (piquete) para exibição na consulta - buscar se não vier do banco
+  let localizacoes = animal.localizacoes
+  if (!localizacoes || !Array.isArray(localizacoes) || localizacoes.length === 0) {
+    try {
+      const { query: dbQuery } = require('../../../lib/database')
+      const locResult = await dbQuery(
+        'SELECT * FROM localizacoes_animais WHERE animal_id = $1 ORDER BY data_entrada DESC',
+        [animal.id]
+      )
+      localizacoes = locResult.rows || []
+    } catch (e) {
+      localizacoes = []
+    }
+  }
   
   // Adicionar campos para compatibilidade
   const animalComIdentificacao = {
     ...animal,
+    localizacoes,
     identificacao: `${animal.serie}-${animal.rg}`,
     dataNascimento: animal.data_nascimento,
     precoVenda: animal.valor_venda,

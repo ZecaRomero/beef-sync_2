@@ -40,6 +40,19 @@ import ToastUI from '../../components/ui/Toast'
 import { integrarNFSaida } from '../../services/notasFiscaisIntegration'
 import DNAHistorySection from '../../components/DNAHistorySection'
 
+// Filtrar nomes de touros que aparecem como localização (C2747 DA S.NICE, NACION 15397, etc.)
+function localizacaoValidaParaExibir(loc) {
+  if (!loc || typeof loc !== 'string') return null
+  const n = loc.trim()
+  if (!n || /^(VAZIO|NÃO INFORMADO|NAO INFORMADO|-)$/i.test(n)) return null
+  if (/^PIQUETE\s+(\d+|CABANHA|CONF|GUARITA|PISTA)$/i.test(n)) return loc
+  if (/^PROJETO\s+[\dA-Za-z\-]+$/i.test(n)) return loc
+  if (/^CONFINA$/i.test(n)) return loc
+  if (/^PIQ\s+\d+$/i.test(n)) return loc.replace(/^PIQ\s+/i, 'PIQUETE ')
+  if (/^(CABANHA|GUARITA|PISTA|CONF)$/i.test(n)) return loc
+  return null // Nome de touro ou inválido
+}
+
 // Função auxiliar para extrair série e RG de uma string
 const extrairSerieRG = (texto) => {
   if (!texto) return { serie: '', rg: '' }
@@ -437,6 +450,7 @@ export default function AnimalDetail() {
       if (campo === 'cor') payload.cor = valor
       else if (campo === 'peso') payload.peso = valor ? parseFloat(valor) : null
       else if (campo === 'observacoes') payload.observacoes = valor
+      else if (campo === 'situacao_abcz') payload.situacao_abcz = valor
       const response = await fetch(`/api/animals/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -1487,16 +1501,31 @@ export default function AnimalDetail() {
     if (!id) return
 
     try {
-      const response = await fetch(`/api/localizacoes?animal_id=${id}&atual=true`)
-      
+      let response = await fetch(`/api/localizacoes?animal_id=${id}&atual=true`)
       let localizacaoAtiva = null
 
       if (response.ok) {
         const result = await response.json()
-        const localizacoes = result.data || []
-        
-        // Buscar a localização atual (sem data_saida)
+        let localizacoes = result.data || []
         localizacaoAtiva = localizacoes.find(loc => !loc.data_saida) || localizacoes[0] || null
+
+        // Se não encontrou ativa, buscar TODAS as localizações e usar a mais recente como fallback
+        // (caso data_saida esteja preenchida por erro de importação, ex: datas invertidas)
+        if (!localizacaoAtiva) {
+          const resTodas = await fetch(`/api/localizacoes?animal_id=${id}`)
+          if (resTodas.ok) {
+            const dataTodas = (await resTodas.json()).data || []
+            const maisRecente = dataTodas[0]
+            if (maisRecente) {
+              const dataEntrada = maisRecente.data_entrada ? new Date(maisRecente.data_entrada) : null
+              const dataSaida = maisRecente.data_saida ? new Date(maisRecente.data_saida) : null
+              // Se data_saida < data_entrada (inconsistente) ou é a única localização, usar como atual
+              if (!dataSaida || !dataEntrada || dataSaida < dataEntrada) {
+                localizacaoAtiva = maisRecente
+              }
+            }
+          }
+        }
       }
       
       // Fallback: Se não encontrou na API de localizações, usar o campo do cadastro do animal
@@ -2057,7 +2086,7 @@ export default function AnimalDetail() {
                 {localizacaoAtual && (
                   <div className="flex justify-between py-2 border-b border-gray-700">
                     <span className="text-gray-400">Localização</span>
-                    <span className="font-semibold text-white">{localizacaoAtual.piquete}</span>
+                    <span className="font-semibold text-white">{localizacaoValidaParaExibir(localizacaoAtual.piquete) || 'Não informado'}</span>
                   </div>
                 )}
 
@@ -2928,7 +2957,7 @@ export default function AnimalDetail() {
               {localizacaoAtual ? (
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {localizacaoAtual.piquete}
+                    {localizacaoValidaParaExibir(localizacaoAtual.piquete) || 'Não informado'}
                   </span>
                   <button 
                     onClick={(e) => { e.stopPropagation(); router.push('/movimentacao/localizacao') }} 
@@ -2980,6 +3009,37 @@ export default function AnimalDetail() {
                   )}{' '}
                   <span className="text-xs text-gray-400">✎</span>
                 </p>
+              )}
+            </div>
+            <div className="col-span-2 md:col-span-2 lg:col-span-2 flex items-end gap-2">
+              <button
+                type="button"
+                className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 whitespace-nowrap"
+              >
+                Situação ABCZ
+              </button>
+              {editingField === 'situacao_abcz' ? (
+                <div className="flex-1 flex gap-1 items-center">
+                  <input
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="flex-1 text-sm border rounded px-2 py-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Ex: Ok para RGN"
+                    autoFocus
+                  />
+                  <button onClick={() => salvarCampoRapido('situacao_abcz', editValue)} disabled={savingField === 'situacao_abcz'} className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 disabled:opacity-50">
+                    {savingField === 'situacao_abcz' ? '...' : 'Salvar'}
+                  </button>
+                  <button onClick={() => { setEditingField(null); setEditValue('') }} className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600">Cancelar</button>
+                </div>
+              ) : (
+                <input
+                  readOnly
+                  value={animal.situacao_abcz || animal.situacaoAbcz || ''}
+                  onClick={() => { setEditingField('situacao_abcz'); setEditValue(animal.situacao_abcz || animal.situacaoAbcz || '') }}
+                  className="flex-1 text-sm border rounded px-2 py-1 dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 min-w-0"
+                  placeholder="Clique para editar"
+                />
               )}
             </div>
             <div className="col-span-2 md:col-span-2 lg:col-span-2">
@@ -3960,6 +4020,8 @@ export default function AnimalDetail() {
                     {animal.receptora || '-'}
                   </p>
                 </div>
+
+
 
                 {/* Separador Genética */}
                 <div className="col-span-full border-t-2 border-emerald-100 dark:border-emerald-900/30 my-4 pt-4">
@@ -5042,12 +5104,50 @@ export default function AnimalDetail() {
         </Card>
       )}
 
-      {/* Observações - sempre visível, editável */}
+      {/* Observações e Situação ABCZ */}
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Observações
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Observações
+            </h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => setShowImportGenetica(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700 transition-colors"
+                title="Importar Série, RG, Status (Excel ou texto)"
+              >
+                <DocumentArrowUpIcon className="h-4 w-4" />
+                Importar Excel/texto
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Situação ABCZ</span>
+                {editingField === 'situacao_abcz' ? (
+                <div className="flex gap-2 items-center">
+                  <input
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="text-sm border rounded px-2 py-1 w-48 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Ex: Ok para RGN"
+                    autoFocus
+                  />
+                  <button onClick={() => salvarCampoRapido('situacao_abcz', editValue)} disabled={savingField === 'situacao_abcz'} className="text-sm bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 disabled:opacity-50">
+                    {savingField === 'situacao_abcz' ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button onClick={() => { setEditingField(null); setEditValue('') }} className="text-sm bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600">Cancelar</button>
+                </div>
+              ) : (
+                <input
+                  readOnly
+                  value={animal.situacao_abcz || animal.situacaoAbcz || ''}
+                  onClick={() => { setEditingField('situacao_abcz'); setEditValue(animal.situacao_abcz || animal.situacaoAbcz || '') }}
+                  className="text-sm border rounded px-2 py-1 w-48 dark:bg-gray-700 dark:border-gray-600 dark:text-white cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600"
+                  placeholder="Clique para editar"
+                />
+              )}
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardBody>
           <div>
