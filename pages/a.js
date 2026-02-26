@@ -38,6 +38,15 @@ export default function ConsultaRapida() {
   // Verificar se já está identificado (localStorage) - localhost pula
   useEffect(() => {
     if (typeof window === 'undefined') return
+    
+    // Carregar tema
+    const savedTheme = localStorage.getItem('theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+      document.documentElement.classList.add('dark')
+    }
+    
+    // Verificar identificação
     const host = window.location.hostname
     if (host === 'localhost' || host === '127.0.0.1') {
       setIdentificado(true)
@@ -351,9 +360,32 @@ export default function ConsultaRapida() {
                 className="object-contain"
               />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 dark:from-amber-500 dark:to-amber-400 bg-clip-text text-transparent mb-2">
-              Beef-Sync
-            </h1>
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-amber-500 dark:from-amber-500 dark:to-amber-400 bg-clip-text text-transparent">
+                Beef-Sync
+              </h1>
+              
+              {/* Controles de Visualização */}
+              <div className="flex items-center gap-2">
+                {/* Toggle Tema Escuro */}
+                <button
+                  onClick={() => {
+                    const isDark = document.documentElement.classList.contains('dark')
+                    if (isDark) {
+                      document.documentElement.classList.remove('dark')
+                      localStorage.setItem('theme', 'light')
+                    } else {
+                      document.documentElement.classList.add('dark')
+                      localStorage.setItem('theme', 'dark')
+                    }
+                  }}
+                  className="bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 p-2 rounded-lg transition-all"
+                  title="Alternar Tema"
+                >
+                  <span className="text-xl">🌙</span>
+                </button>
+              </div>
+            </div>
             <p className="text-base text-gray-600 dark:text-gray-400">
               Bem-vindo! Use os campos abaixo para consultar a ficha de um animal.
             </p>
@@ -497,7 +529,7 @@ export default function ConsultaRapida() {
           {/* Dica de Exemplo */}
           <div className="text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg px-4 py-2 inline-block">
-              💡 Exemplo: Série <span className="font-semibold text-amber-600 dark:text-amber-500">CJCJ</span> e RG <span className="font-semibold text-amber-600 dark:text-amber-500">15563</span>
+              💡 Exemplo: Série <span className="font-semibold text-amber-600 dark:text-amber-500">CJCJ</span> e RG <span className="font-semibold text-amber-600 dark:text-amber-500">12345</span>
             </p>
           </div>
           </>
@@ -553,4 +585,9 @@ export default function ConsultaRapida() {
       `}</style>
     </>
   )
+}
+
+// Desabilitar layout padrão (sem sidebar)
+ConsultaRapida.getLayout = function getLayout(page) {
+  return page
 }

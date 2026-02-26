@@ -24,20 +24,20 @@ echo.
 
 start "Beef-Sync" cmd /k "cd /d "%~dp0" && npm run dev"
 timeout /t 10 /nobreak >nul
-start "ngrok" cmd /k "cd /d "%~dp0" && ngrok http 3020"
+start "ngrok" cmd /k "cd /d "%~dp0" && ngrok http 3020 --domain=www.beefsync.ngrok.app"
 
 echo.
 echo ========================================================
 echo   PRONTO!
 echo ========================================================
 echo.
-echo   1. Na janela "ngrok", procure "Forwarding" e COPIE a URL real
-echo      (algo como https://a1b2c3d4.ngrok-free.app)
+echo   1. Use sempre: https://www.beefsync.ngrok.app
 echo.
-echo   2. NAO use abc123 - e so exemplo! Use a URL da janela ngrok
+echo   2. No celular, abra: https://www.beefsync.ngrok.app/a
+echo   3. Digite Serie e RG, clique Buscar
 echo.
-echo   3. No celular, abra: [SUA_URL]/a
-echo   4. Digite Serie e RG, clique Buscar
+echo Abrindo navegador local...
+start http://localhost:3020
 echo.
 echo ========================================================
 pause

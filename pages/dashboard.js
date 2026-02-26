@@ -356,17 +356,42 @@ export default function Dashboard() {
   const [showInteractive, setShowInteractive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [darkMode, setDarkMode] = useState(false)
 
-  // Redirecionar para mobile se acessar do celular
+  // Carregar preferência de tema
   useEffect(() => {
-    const isMobileUA = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    const isSmallScreen = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches
-    const isMobile = isMobileUA || isSmallScreen
-    
-    if (isMobile) {
-      router.replace('/a')
+    const savedTheme = localStorage.getItem('theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark)
+    setDarkMode(isDark)
+    if (isDark) {
+      document.documentElement.classList.add('dark')
     }
-  }, [router])
+  }, [])
+
+  // Alternar tema
+  const toggleDarkMode = () => {
+    const newMode = !darkMode
+    setDarkMode(newMode)
+    if (newMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }
+
+  // Redirecionar para mobile se acessar do celular (desabilitado - agora é manual)
+  // useEffect(() => {
+  //   const isMobileUA = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  //   const isSmallScreen = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(max-width: 768px)').matches
+  //   const isMobile = isMobileUA || isSmallScreen
+  //   
+  //   if (isMobile) {
+  //     router.replace('/a')
+  //   }
+  // }, [router])
 
   // Carregar estatísticas do sistema
   useEffect(() => {
@@ -478,11 +503,36 @@ export default function Dashboard() {
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-lg p-4 md:p-8 text-white shadow-lg relative overflow-hidden">
         <div className="absolute inset-0 bg-white opacity-10 rounded-lg"></div>
         <div className="relative z-10">
-          <h1 className="text-2xl md:text-4xl font-bold mb-2 flex items-center space-x-2">
-            <span className="text-3xl md:text-5xl">📊</span>
-            <span>Beef Sync</span>
-          </h1>
-          <p className="text-blue-100 text-sm md:text-lg">Visão geral do rebanho</p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl md:text-4xl font-bold mb-2 flex items-center space-x-2">
+                <span className="text-3xl md:text-5xl">📊</span>
+                <span>Beef Sync</span>
+              </h1>
+              <p className="text-blue-100 text-sm md:text-lg">Visão geral do rebanho</p>
+            </div>
+            
+            {/* Controles de Visualização */}
+            <div className="flex items-center gap-2">
+              {/* Botão Modo Mobile */}
+              <button
+                onClick={() => router.push('/a')}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm p-2 md:p-3 rounded-lg transition-all"
+                title="Modo Mobile"
+              >
+                <span className="text-xl md:text-2xl">📱</span>
+              </button>
+              
+              {/* Toggle Tema Escuro */}
+              <button
+                onClick={toggleDarkMode}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm p-2 md:p-3 rounded-lg transition-all"
+                title={darkMode ? 'Modo Claro' : 'Modo Escuro'}
+              >
+                <span className="text-xl md:text-2xl">{darkMode ? '☀️' : '🌙'}</span>
+              </button>
+            </div>
+          </div>
           
           {/* Toggle para Dashboard Interativo */}
           <div className="mt-3 flex items-center space-x-2">
