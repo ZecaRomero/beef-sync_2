@@ -119,7 +119,7 @@ export default function ImportarTextoInseminacoes({ isOpen, onClose, onImportCom
               <li>Se estiver tudo OK, clique em "Importar"</li>
             </ol>
             <p className="text-xs text-blue-700 mt-2">
-              💡 Colunas: SÉRIE | RG | LOCAL | TOURO | SÉRIE(pai) | RG(pai) | DATA IA | DATA DG | Result
+              💡 Colunas aceitas: SÉRIE | RG | LOCAL | TOURO ou ACASALAMENTO | DATA IA ou DATA I.A | DATA DG ou PREVISAO DE PARTO | Result (LOCAL e Result são opcionais)
             </p>
           </div>
 

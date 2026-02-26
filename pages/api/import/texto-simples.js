@@ -39,8 +39,47 @@ export default async function handler(req, res) {
     
     // Remover cabeçalho se tiver
     const primeiraLinha = linhas[0].toUpperCase();
-    const temCabecalho = primeiraLinha.includes('SÉRIE') || primeiraLinha.includes('SERIE') || primeiraLinha.includes('LOCAL');
-    const dadosLinhas = temCabecalho ? linhas.slice(1) : linhas;
+    const temCabecalho = primeiraLinha.includes('SÉRIE') || primeiraLinha.includes('SERIE') || primeiraLinha.includes('LOCAL') || primeiraLinha.includes('ACASALAMENTO') || primeiraLinha.includes('TOURO');
+    
+    let mapaColunas = null;
+    let dadosLinhas = linhas;
+
+    if (temCabecalho) {
+      dadosLinhas = linhas.slice(1);
+      
+      // Tentar mapear colunas pelo cabeçalho
+      let cols = linhas[0].split('\t').map(c => c.trim());
+      let separador = '\t';
+      
+      // Se não tem tabs suficientes, tentar espaços duplos
+      if (cols.length <= 1) {
+        cols = linhas[0].split(/\s{2,}/).map(c => c.trim());
+        separador = 'spaces';
+      }
+      
+      // Filtrar apenas para verificar se temos colunas suficientes para mapear, 
+      // mas MANTER os índices originais para o mapeamento
+      const colsNaoVazias = cols.filter(c => c);
+      
+      if (colsNaoVazias.length >= 2) {
+        mapaColunas = { separador };
+        cols.forEach((col, idx) => {
+          if (!col) return;
+          const c = col.toUpperCase();
+          if (c.includes('SÉRIE') || c.includes('SERIE')) mapaColunas.serie = idx;
+          else if (c === 'RG') mapaColunas.rg = idx;
+          else if (c.includes('LOCAL') || c.includes('PIQUETE')) mapaColunas.local = idx;
+          else if (c.includes('TOURO') || c.includes('ACASALAMENTO') || c.includes('REPRODUTOR')) mapaColunas.touro = idx;
+          else if (c.includes('DATA I.A') || c.includes('DATA IA')) mapaColunas.dataIA = idx;
+          else if (c.includes('DATA DG') || c.includes('DIAG') || c.includes('PREVISAO')) mapaColunas.dataDG = idx;
+          else if (c.includes('RESULT')) mapaColunas.resultado = idx;
+        });
+        console.log('🗺️ Mapa de colunas detectado:', mapaColunas);
+      }
+    } else {
+       // Se não tem cabeçalho explícito, mantém todas as linhas
+       dadosLinhas = linhas;
+    }
 
     const dadosProcessados = [];
     const errosValidacao = [];
@@ -52,16 +91,34 @@ export default async function handler(req, res) {
       if (!linha) continue;
 
       const numeroLinha = i + (temCabecalho ? 2 : 1);
-
-      // Tentar diferentes métodos de separação
       let colunas = [];
-      
-      // Método 1: TAB
-      colunas = linha.split('\t').map(c => c.trim()).filter(c => c);
-      
-      // Método 2: Se só tem 1 coluna, tentar espaços múltiplos (2+)
-      if (colunas.length === 1) {
-        colunas = linha.split(/\s{2,}/).map(c => c.trim()).filter(c => c);
+
+      let usouFallbackEspacos = false;
+
+      if (mapaColunas && mapaColunas.separador === '\t') {
+        // Se temos mapa com TAB, usar split TAB preservando vazios
+        colunas = linha.split('\t').map(c => c.trim());
+        
+        // Se a linha não tem tabs suficientes (ex: colou com espaços), tentar fallback para espaços
+        // Mas APENAS se o split por tabs resultou em poucas colunas
+        if (colunas.length <= 1) {
+          const colsEspacos = linha.split(/\s{2,}/).map(c => c.trim());
+          if (colsEspacos.length > colunas.length) {
+            console.log(`  ⚠️ Linha ${numeroLinha}: Tabs não encontrados, usando espaços.`);
+            colunas = colsEspacos;
+            usouFallbackEspacos = true;
+            // Nota: índices podem não bater perfeitamente se houver colunas vazias, 
+            // mas é melhor que falhar totalmente.
+          }
+        }
+      } else if (mapaColunas && mapaColunas.separador === 'spaces') {
+        colunas = linha.split(/\s{2,}/).map(c => c.trim());
+      } else {
+        // Fallback antigo (sem mapa ou mapa falhou)
+        colunas = linha.split('\t').map(c => c.trim()).filter(c => c);
+        if (colunas.length === 1) {
+          colunas = linha.split(/\s{2,}/).map(c => c.trim()).filter(c => c);
+        }
       }
       
       // Método 3: Se ainda tem poucas colunas, usar regex para encontrar padrões
@@ -101,61 +158,129 @@ export default async function handler(req, res) {
 
       console.log(`Linha ${numeroLinha}: ${colunas.length} colunas:`, colunas);
 
-      // Mínimo: SÉRIE, RG, LOCAL
-      if (colunas.length < 3) {
+      // Mínimo: SÉRIE, RG
+      if (colunas.length < 2) {
         errosValidacao.push({
           linha: numeroLinha,
-          erro: `Apenas ${colunas.length} colunas encontradas. Copie do Excel com Ctrl+C para manter as TABs.`
+          erro: `Apenas ${colunas.length} colunas encontradas. Verifique se os dados estão separados por TAB ou espaços.`
         });
         continue;
       }
 
-      // Extrair dados básicos
-      const serie = colunas[0] || '';
-      const rg = colunas[1] || '';
-      
-      // LOCAL pode estar na coluna 2 ou 3
+      let serie = '';
+      let rg = '';
       let local = '';
-      let offsetColunas = 0;
-      
-      // Se coluna 2 parece ser LOCAL (não é número e não é vazio)
-      if (colunas[2] && isNaN(colunas[2]) && colunas[2].length > 1) {
-        local = colunas[2];
-        offsetColunas = 3;
-      } else if (colunas[3]) {
-        local = colunas[3];
-        offsetColunas = 4;
-      } else {
-        local = colunas[2] || '';
-        offsetColunas = 3;
-      }
-
-      // Tentar encontrar as datas nas colunas seguintes
+      let touroIA = '';
       let dataIA = null;
       let dataDG = null;
-      let touroIA = '';
       let resultado = '';
 
-      // Procurar datas nas colunas restantes
-      for (let j = offsetColunas; j < colunas.length; j++) {
-        const col = colunas[j];
-        if (!col) continue;
+      if (mapaColunas) {
+        // Usar mapeamento do cabeçalho
+        serie = colunas[mapaColunas.serie] || '';
+        rg = colunas[mapaColunas.rg] || '';
+        if (mapaColunas.local !== undefined) local = colunas[mapaColunas.local] || '';
+        if (mapaColunas.touro !== undefined) touroIA = colunas[mapaColunas.touro] || '';
+        if (mapaColunas.dataIA !== undefined) dataIA = colunas[mapaColunas.dataIA];
+        if (mapaColunas.dataDG !== undefined) dataDG = colunas[mapaColunas.dataDG];
+        if (mapaColunas.resultado !== undefined) resultado = colunas[mapaColunas.resultado];
 
-        // Se parece ser uma data (tem /)
-        if (col.includes('/')) {
-          if (!dataIA) {
-            dataIA = col;
-          } else if (!dataDG) {
-            dataDG = col;
+        // Validação extra: Se touroIA parece ser uma data (erro de deslocamento), limpar
+        if (touroIA && (touroIA.includes('/') || /^\d{1,2}\/\d{1,2}/.test(touroIA))) {
+             console.log(`  ⚠️ Touro inválido detectado (parece data): "${touroIA}". Limpando para reprocessar.`);
+             touroIA = '';
+        }
+
+        // Se estamos usando espaços (ou fallback) e não encontramos o touro no índice esperado,
+         // tentar procurar em outras colunas (pode ter havido deslocamento por colunas vazias)
+         if (!touroIA && (mapaColunas.separador === 'spaces' || usouFallbackEspacos)) {
+            
+            // 1. Verificar se o campo 'local' capturou o touro por engano (deslocamento à esquerda)
+            if (local && local.length > 2 && !local.includes('/') && isNaN(local.replace(/\s/g, '')) && /[a-zA-Z]{2,}/.test(local)) {
+               // Heurística: Piquetes geralmente têm "Piquete", "Local" ou são curtos. Touros são nomes.
+               if (!/^(PIQUETE|LOCAL|PASTO|RETIRO|MANGUEIRO|CURRAL)/i.test(local)) {
+                   console.log(`  → Touro estava no campo Local (realocando): "${local}"`);
+                   touroIA = local;
+                   local = ''; // Reset local, será preenchido com padrão depois
+               }
+            }
+
+            // 2. Se ainda não achou, varrer todas as colunas não utilizadas
+            if (!touroIA) {
+              for (const col of colunas) {
+                if (!col || col === serie || col === rg || col === local || col === dataIA || col === dataDG || col === resultado) continue;
+                
+                // Critérios para ser touro: texto longo, ou "DA/DE/DO", ou hífen, ou não numérico e não data
+                // E que tenha pelo menos 3 letras
+                if (col.length > 2 && !col.includes('/') && isNaN(col.replace(/\s/g, '')) && /[a-zA-Z]{2,}/.test(col)) {
+                  console.log(`  → Touro não encontrado no índice, tentando usar: "${col}"`);
+                  touroIA = col;
+                  break; 
+                }
+              }
+            }
+         }
+
+         // Fallback para DATA IA se não encontrada no mapa (deslocamento)
+         if (!dataIA) {
+             for (const col of colunas) {
+                 if (col && (col.includes('/') || /^\d{1,2}\/\d{1,2}/.test(col))) {
+                     // Verificar se já não é dataDG
+                     if (col !== dataDG) {
+                         console.log(`  → Data IA recuperada de outra coluna: "${col}"`);
+                         dataIA = col;
+                         break;
+                     }
+                 }
+             }
+         }
+      } else {
+        // Extração heurística (Fallback)
+        serie = colunas[0] || '';
+        rg = colunas[1] || '';
+        
+        let offsetColunas = 2;
+        
+        // Verificar se a coluna 2 é LOCAL ou TOURO
+        // Se for data (tem /), pulamos, pois não há local nem touro antes
+        if (colunas[2] && colunas[2].includes('/')) {
+             offsetColunas = 2;
+        } 
+        // Se texto longo ou com " DA " ou " - ", é provável que seja Touro
+        else if (colunas[2] && (colunas[2].length > 15 || /\s(DA|DE|DO|DOS|DAS)\s/i.test(colunas[2]) || colunas[2].includes(' - '))) {
+             touroIA = colunas[2];
+             offsetColunas = 3;
+        } 
+        // Caso contrário, assumimos que é Local (comportamento padrão antigo)
+        else if (colunas[2] && isNaN(colunas[2]) && colunas[2].length > 1) {
+             local = colunas[2];
+             offsetColunas = 3;
+        } else if (colunas[3]) {
+             local = colunas[3];
+             offsetColunas = 4;
+        }
+
+        // Procurar datas e outros campos restantes
+        for (let j = offsetColunas; j < colunas.length; j++) {
+          const col = colunas[j];
+          if (!col) continue;
+
+          // Se parece ser uma data (tem /)
+          if (col.includes('/')) {
+            if (!dataIA) {
+              dataIA = col;
+            } else if (!dataDG) {
+              dataDG = col;
+            }
           }
-        }
-        // Se é uma letra única, pode ser resultado
-        else if (col.length === 1 && /[A-Z]/i.test(col)) {
-          resultado = col;
-        }
-        // Se tem texto, pode ser touro
-        else if (col.length > 2 && !touroIA) {
-          touroIA = col;
+          // Se é uma letra única, pode ser resultado
+          else if (col.length === 1 && /[A-Z]/i.test(col)) {
+            resultado = col;
+          }
+          // Se tem texto e não temos touro ainda, pode ser touro
+          else if (col.length > 2 && !touroIA && !col.includes('/')) {
+            touroIA = col;
+          }
         }
       }
 
@@ -168,10 +293,9 @@ export default async function handler(req, res) {
         errosValidacao.push({ linha: numeroLinha, erro: 'RG vazio' });
         continue;
       }
-      if (!local) {
-        errosValidacao.push({ linha: numeroLinha, erro: 'LOCAL vazio' });
-        continue;
-      }
+      
+      // Se local vazio, define padrão
+      if (!local) local = 'Não informado';
 
       // Converter datas
       const dataIAFormatada = dataIA ? converterDataSimples(dataIA) : null;

@@ -265,7 +265,9 @@ async function handleGet(req, res, id) {
     status: animal.situacao,
     // Garantir que ambos os formatos de nome do campo estejam presentes
     avo_materno: animal.avo_materno || animal.avoMaterno || null,
-    avoMaterno: animal.avo_materno || animal.avoMaterno || null
+    avoMaterno: animal.avo_materno || animal.avoMaterno || null,
+    situacao_abcz: animal.situacao_abcz || animal.situacaoAbcz || null,
+    situacaoAbcz: animal.situacao_abcz || animal.situacaoAbcz || null
   }
   
   console.log(`✅ GET Animal ${animal.serie}-${animal.rg} (ID: ${animal.id})`)
@@ -308,7 +310,9 @@ async function handlePut(req, res, id) {
     status: animal.situacao,
     // Garantir que ambos os formatos de nome do campo estejam presentes
     avo_materno: animal.avo_materno || animal.avoMaterno || null,
-    avoMaterno: animal.avo_materno || animal.avoMaterno || null
+    avoMaterno: animal.avo_materno || animal.avoMaterno || null,
+    situacao_abcz: animal.situacao_abcz || animal.situacaoAbcz || null,
+    situacaoAbcz: animal.situacao_abcz || animal.situacaoAbcz || null
   }
   
   return sendSuccess(res, animalComIdentificacao)

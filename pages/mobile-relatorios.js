@@ -26,7 +26,8 @@ import {
   ArrowDownTrayIcon,
   FunnelIcon,
   SparklesIcon,
-  LightBulbIcon
+  LightBulbIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Filler, Tooltip, Legend)
@@ -63,7 +64,9 @@ const ICONE_POR_CATEGORIA = {
   Estoque: DocumentTextIcon,
   Localização: MapPinIcon,
   Financeiro: CurrencyDollarIcon,
-  Gestão: ChartBarIcon
+  Gestão: ChartBarIcon,
+  Documentos: DocumentTextIcon,
+  Outros: ChartBarIcon
 }
 
 export default function MobileRelatorios() {
@@ -94,6 +97,7 @@ export default function MobileRelatorios() {
     return d
   })
   const [selectedDate, setSelectedDate] = useState(null)
+  const [dashboardData, setDashboardData] = useState(null)
   const [recentIds, setRecentIds] = useState(() => {
     try {
       const s = typeof window !== 'undefined' ? localStorage.getItem('mobile-relatorios-recent') : null
@@ -108,13 +112,28 @@ export default function MobileRelatorios() {
         if (d.success && d.data) {
           setConfig(d.data)
         } else if (d.enabled && d.allTypes) {
-          // Fallback para formato antigo
           setConfig({ enabled: d.enabled, allTypes: d.allTypes })
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // Carregar dashboard (resumo geral) na entrada
+  useEffect(() => {
+    if (!config?.enabled?.includes('resumo_geral')) return
+    const params = new URLSearchParams({
+      tipo: 'resumo_geral',
+      startDate: period.startDate,
+      endDate: period.endDate
+    })
+    fetch(`/api/mobile-reports?${params}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data) setDashboardData(d.data)
+      })
+      .catch(() => {})
+  }, [config?.enabled])
 
   useEffect(() => {
     if (!selectedTipo) {
@@ -416,6 +435,29 @@ export default function MobileRelatorios() {
     pesagensPorData || inseminacoesPorTouro || estoquePorTouro || nascimentosPorMes ||
     nitrogenioEvolution || nitrogenioByDriver
 
+  const ehResumoGeral = selectedTipo === 'resumo_geral'
+  const graficosResumo = ehResumoGeral ? (reportData?.resumo?.graficos || []) : []
+  
+  const chartResumoIdade = ehResumoGeral && graficosResumo.length > 0 ? {
+    labels: graficosResumo.filter(d => d.categoria === 'Idade').map(d => d.label),
+    datasets: [{
+      data: graficosResumo.filter(d => d.categoria === 'Idade').map(d => d.valor),
+      backgroundColor: ['rgba(245, 158, 11, 0.85)', 'rgba(34, 197, 94, 0.85)', 'rgba(59, 130, 246, 0.85)'],
+      borderColor: ['rgba(245, 158, 11, 1)', 'rgba(34, 197, 94, 1)', 'rgba(59, 130, 246, 1)'],
+      borderWidth: 1
+    }]
+  } : null
+
+  const chartResumoSexo = ehResumoGeral && graficosResumo.length > 0 ? {
+    labels: graficosResumo.filter(d => d.categoria === 'Sexo').map(d => d.label),
+    datasets: [{
+      data: graficosResumo.filter(d => d.categoria === 'Sexo').map(d => d.valor),
+      backgroundColor: ['rgba(59, 130, 246, 0.85)', 'rgba(236, 72, 153, 0.85)'],
+      borderColor: ['rgba(59, 130, 246, 1)', 'rgba(236, 72, 153, 1)'],
+      borderWidth: 1
+    }]
+  } : null
+
   const temCalendario = selectedTipo === 'calendario_reprodutivo'
 
   const eventosPorDia = temCalendario && filteredCalendario.length > 0 ? (() => {
@@ -541,13 +583,33 @@ export default function MobileRelatorios() {
 
     if (selectedTipo === 'calendario_reprodutivo' && dados.length > 0) {
       const porTipo = {}
+      const porMes = {}
       dados.forEach(r => {
         const t = (r.tipo || 'Outros').trim() || 'Outros'
         porTipo[t] = (porTipo[t] || 0) + 1
+        const d = r.data || ''
+        if (d) {
+          const mesAno = d.substring(0, 7)
+          porMes[mesAno] = (porMes[mesAno] || 0) + 1
+        }
       })
       const top = Object.entries(porTipo).sort(([, a], [, b]) => b - a)[0]
+      const partos = porTipo['Parto Previsto'] || contagemTiposCalendario?.partos || 0
       list.push({ icon: '📅', text: `${dados.length} evento(s) no calendário` })
+      if (partos > 0) list.push({ icon: '🐄', text: `${partos} parto(s) previsto(s) no período` })
+      if (Object.keys(porMes).length > 0) {
+        const mesesComEventos = Object.keys(porMes).length
+        list.push({ icon: '📆', text: `${mesesComEventos} mês(es) com eventos` })
+      }
       if (top) list.push({ icon: '📌', text: `${top[0]}: ${top[1]} evento(s)` })
+    }
+
+    if (selectedTipo === 'previsoes_parto' && dados.length > 0) {
+      const res = reportData?.resumo || {}
+      const total = res['Total de previsões'] ?? dados.length
+      if (total > 0) list.push({ icon: '🤰', text: `${total} previsão(ões) de parto no período` })
+      const porTouro = res['Prenhas por touro']
+      if (porTouro && porTouro !== '-') list.push({ icon: '🐂', text: `Por touro: ${String(porTouro).substring(0, 80)}${String(porTouro).length > 80 ? '...' : ''}` })
     }
 
     return list
@@ -561,8 +623,9 @@ export default function MobileRelatorios() {
     nascimentos: 'A proporção macho/fêmea ajuda no planejamento do rebanho.',
     estoque_semen: 'Mantenha estoque para os touros mais utilizados.',
     gestacoes: 'Acompanhe gestações atrasadas para intervenções.',
+    previsoes_parto: 'Resumo por touro: quantas prenhas cada touro gerou. Ajuste as datas para ver partos previstos no período.',
     mortes: 'Analise causas para prevenir futuras perdas.',
-    calendario_reprodutivo: 'Eventos manuais, receptoras, partos previstos e refazer andrológico em um só lugar.'
+    calendario_reprodutivo: 'Eventos manuais, receptoras, partos previstos e refazer andrológico. Veja meses com eventos e quantidade de parições.'
   }
   const dicaAtual = selectedTipo ? DICAS_POR_TIPO[selectedTipo] : null
 
@@ -619,8 +682,8 @@ export default function MobileRelatorios() {
         <title>Relatórios | Beef-Sync</title>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
       </Head>
-      <div className="min-h-screen bg-gradient-to-b from-amber-50/50 to-gray-50 dark:from-gray-900 dark:to-gray-950 pb-24">
-        <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+      <div className="min-h-screen bg-gradient-to-b from-amber-50/80 via-gray-50 to-gray-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950 pb-24">
+        <div className="sticky top-0 z-10 bg-white/98 dark:bg-gray-900/98 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-700 shadow-sm px-4 py-3">
           <div className="max-w-lg mx-auto flex items-center justify-between">
             {selectedTipo ? (
               <button
@@ -646,7 +709,7 @@ export default function MobileRelatorios() {
                   {allTypes.find(t => t.key === selectedTipo)?.label || 'Relatório'}
                 </span>
               ) : (
-                'Relatórios'
+                <span>Relatórios</span>
               )}
             </h1>
             <div className="w-16" />
@@ -665,15 +728,57 @@ export default function MobileRelatorios() {
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-center py-4"
+                className="text-center py-2"
               >
-                <p className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent">
-                  Análise do Rebanho
+                <p className="text-2xl font-bold bg-gradient-to-r from-amber-600 via-amber-500 to-amber-400 bg-clip-text text-transparent">
+                  Beef-Sync Relatórios
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Gráficos, insights e relatórios em um só lugar
+                  Gestão completa do rebanho na palma da mão
                 </p>
               </motion.div>
+
+              {/* Dashboard / Visão Geral - KPIs rápidos */}
+              {dashboardData?.data?.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="mb-6"
+                >
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Visão Geral</span>
+                    <button
+                      onClick={() => setSelectedTipo('resumo_geral')}
+                      className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline"
+                    >
+                      Ver completo →
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {dashboardData.data.slice(0, 4).map((mod, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: 0.05 * i }}
+                        onClick={() => setSelectedTipo('resumo_geral')}
+                        className="p-4 rounded-2xl bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md hover:border-amber-300 dark:hover:border-amber-600 transition-all active:scale-[0.98] cursor-pointer"
+                      >
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{mod.modulo}</p>
+                        <div className="space-y-1">
+                          {Object.entries(mod.dados || {}).slice(0, 2).map(([k, v]) => (
+                            <div key={k} className="flex justify-between items-baseline gap-2">
+                              <span className="text-xs text-gray-600 dark:text-gray-400 truncate">{k}</span>
+                              <span className="text-sm font-bold text-gray-900 dark:text-white truncate">{String(v)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
               {tiposHabilitados.length === 0 ? (
                 <div className="p-6 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-center">
                   <p className="text-amber-800 dark:text-amber-200">
@@ -682,16 +787,47 @@ export default function MobileRelatorios() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Acesso Rápido - Relatórios mais usados */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <SparklesIcon className="h-4 w-4 text-amber-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Acesso Rápido</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['resumo_geral', 'previsoes_parto', 'calendario_reprodutivo', 'ranking_pmgz'].filter(k => enabledReports.includes(k)).map((id, i) => {
+                        const tipo = allTypes.find(t => t.key === id)
+                        if (!tipo) return null
+                        const Icon = ICONE_POR_CATEGORIA[tipo.category] || ChartBarIcon
+                        return (
+                          <motion.button
+                            key={id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.05 * i }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => setSelectedTipo(id)}
+                            className="flex items-center gap-2 p-3 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-900/10 border-2 border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 shadow-sm hover:shadow-md transition-all text-left"
+                          >
+                            <div className="p-2 rounded-lg bg-amber-200/50 dark:bg-amber-800/50">
+                              <Icon className="h-5 w-5 text-amber-700 dark:text-amber-300" />
+                            </div>
+                            <span className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">{tipo.label.replace(/^[📊📅🏆]\s*/, '')}</span>
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
                   {/* Card especial para Boletim Defesa */}
                   <Link href="/boletim-defesa/mobile">
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-4 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 dark:from-teal-600 dark:to-teal-700 border-2 border-teal-400 dark:border-teal-500 shadow-lg hover:shadow-xl transition-all"
+                      className="p-4 rounded-2xl bg-gradient-to-br from-teal-500 via-teal-600 to-emerald-600 dark:from-teal-600 dark:to-teal-800 border-2 border-teal-400 dark:border-teal-500 shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-3 rounded-xl bg-white/20 backdrop-blur">
+                          <div className="p-3 rounded-xl bg-white/20 backdrop-blur shadow-inner">
                             <DocumentTextIcon className="h-7 w-7 text-white" />
                           </div>
                           <div>
@@ -699,18 +835,18 @@ export default function MobileRelatorios() {
                             <p className="text-teal-100 text-sm">Quantidades de gado por faixa etária</p>
                           </div>
                         </div>
-                        <ChevronRightIcon className="h-6 w-6 text-white" />
+                        <ChevronRightIcon className="h-6 w-6 text-white opacity-90" />
                       </div>
                     </motion.div>
                   </Link>
 
-                  {recentIds.length > 0 && (
+                  {recentIds.filter(id => !['resumo_geral', 'previsoes_parto', 'calendario_reprodutivo', 'ranking_pmgz'].includes(id)).length > 0 && (
                     <div>
                       <div className="flex items-center gap-2 mb-2 px-1">
                         <span className="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">Acessados recentemente</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {recentIds.map(id => {
+                        {recentIds.filter(id => !['resumo_geral', 'previsoes_parto', 'calendario_reprodutivo', 'ranking_pmgz'].includes(id)).map(id => {
                           const tipo = allTypes.find(t => t.key === id)
                           if (!tipo || !enabledReports.includes(id)) return null
                           const Icon = ICONE_POR_CATEGORIA[tipo.category] || DocumentTextIcon
@@ -729,16 +865,24 @@ export default function MobileRelatorios() {
                       </div>
                     </div>
                   )}
+                  <div>
+                    <div className="flex items-center gap-2 mb-3 px-1">
+                      <ChartBarIcon className="h-4 w-4 text-amber-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Todos os Relatórios</span>
+                    </div>
                   {Object.entries(porCategoria).map(([cat, tipos]) => {
                     const CatIcon = ICONE_POR_CATEGORIA[cat] || DocumentTextIcon
+                    const ACESSO_RAPIDO_KEYS = ['resumo_geral', 'previsoes_parto', 'calendario_reprodutivo', 'ranking_pmgz']
+                    const tiposFiltrados = tipos.filter(t => !ACESSO_RAPIDO_KEYS.includes(t.key))
+                    if (tiposFiltrados.length === 0) return null
                     return (
-                      <div key={cat}>
+                      <div key={cat} className="mb-6">
                         <div className="flex items-center gap-2 mb-2 px-1">
                           <CatIcon className="h-4 w-4 text-amber-500" />
                           <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{cat}</span>
                         </div>
                         <div className="space-y-2">
-                          {tipos.map((tipo, i) => {
+                          {tiposFiltrados.map((tipo, i) => {
                             const Icon = ICONE_POR_CATEGORIA[tipo.category] || DocumentTextIcon
                             return (
                               <motion.button
@@ -746,8 +890,9 @@ export default function MobileRelatorios() {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: i * 0.03 }}
+                                whileTap={{ scale: 0.99 }}
                                 onClick={() => setSelectedTipo(tipo.key)}
-                                className="w-full flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-amber-500 dark:hover:border-amber-500 hover:shadow-lg transition-all text-left group"
+                                className="w-full flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-lg shadow-sm transition-all text-left group"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/30 group-hover:bg-amber-200 dark:group-hover:bg-amber-900/50 transition-colors">
@@ -763,6 +908,22 @@ export default function MobileRelatorios() {
                       </div>
                     )
                   })}
+                  </div>
+
+                  {/* Rodapé */}
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700 text-center"
+                  >
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      Beef-Sync • Gestão inteligente de rebanho
+                    </p>
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 opacity-75">
+                      Exporte relatórios em CSV ou compartilhe com sua equipe
+                    </p>
+                  </motion.div>
                 </div>
               )}
             </div>
@@ -865,6 +1026,94 @@ export default function MobileRelatorios() {
                             📋 Tabela
                           </button>
                         </>
+                      )}
+                    </div>
+                  )}
+
+
+                  {ehResumoGeral && (
+                    <div className="space-y-4">
+                      {reportData?.data?.map((mod, i) => {
+                         const ModIcon = mod.modulo === 'Rebanho' ? UserGroupIcon :
+                           mod.modulo === 'Reprodução' ? HeartIcon :
+                           mod.modulo === 'Peso' ? ScaleIcon :
+                           mod.modulo === 'Financeiro' ? BanknotesIcon :
+                           mod.modulo === 'Custos' ? BanknotesIcon :
+                           mod.modulo === 'Vendas' ? CurrencyDollarIcon :
+                           mod.modulo === 'Sanidade' ? SparklesIcon :
+                           ChartBarIcon
+                         return (
+                           <motion.div
+                             key={i}
+                             initial={{ opacity: 0, y: 20 }}
+                             animate={{ opacity: 1, y: 0 }}
+                             transition={{ delay: i * 0.1 }}
+                             className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700"
+                           >
+                             <div className="flex items-center gap-3 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
+                               <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-xl text-amber-600 dark:text-amber-400">
+                                 <ModIcon className="h-6 w-6" />
+                               </div>
+                               <h3 className="font-bold text-lg text-gray-900 dark:text-white">{mod.modulo}</h3>
+                             </div>
+                             <div className="grid grid-cols-2 gap-3">
+                               {Object.entries(mod.dados || {}).map(([label, val], j) => (
+                                 <div key={j} className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
+                                   <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wide mb-1">{label}</p>
+                                   <p className="text-lg font-bold text-gray-900 dark:text-white truncate">{val}</p>
+                       </div>
+                     ))}
+                   </div>
+                 </motion.div>
+               )
+            })}
+            
+            {(chartResumoIdade || chartResumoSexo) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {chartResumoIdade && chartResumoIdade.datasets[0].data.some(v => v > 0) && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700"
+                  >
+                     <div className="flex items-center gap-2 mb-4">
+                       <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                         <ChartBarIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                       </div>
+                       <h3 className="font-bold text-lg text-gray-900 dark:text-white">Distribuição por Idade</h3>
+                     </div>
+                     <div className="h-64 relative">
+                       <Doughnut data={chartResumoIdade} options={pieOptions} />
+                     </div>
+                  </motion.div>
+                )}
+                
+                {chartResumoSexo && chartResumoSexo.datasets[0].data.some(v => v > 0) && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-700"
+                  >
+                     <div className="flex items-center gap-2 mb-4">
+                       <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                         <UserGroupIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                       </div>
+                       <h3 className="font-bold text-lg text-gray-900 dark:text-white">Distribuição por Sexo</h3>
+                     </div>
+                     <div className="h-64 relative">
+                       <Doughnut data={chartResumoSexo} options={pieOptions} />
+                     </div>
+                  </motion.div>
+                )}
+              </div>
+            )}
+
+            {reportData?.resumo?.erro && (
+                         <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-300 rounded-xl text-center text-sm font-medium border border-red-100 dark:border-red-800">
+                           {reportData.resumo.erro}
+                         </div>
                       )}
                     </div>
                   )}
@@ -1316,7 +1565,7 @@ export default function MobileRelatorios() {
                     </div>
                   )}
 
-                  {(viewMode === 'table' || (!temGraficos && !temCalendario)) && (
+                  {(viewMode === 'table' || (!temGraficos && !temCalendario && !ehResumoGeral)) && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}

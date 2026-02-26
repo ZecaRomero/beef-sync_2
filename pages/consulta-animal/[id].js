@@ -74,6 +74,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
   const [transferencias, setTransferencias] = useState([])
   const [ultimoCE, setUltimoCE] = useState(null)
   const [ultimaIA, setUltimaIA] = useState(null)
+  const [inseminacoesFetch, setInseminacoesFetch] = useState(null)
   const [previsaoPartoIA, setPrevisaoPartoIA] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -217,32 +218,53 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
     if (ex) setUltimoCE(ex.ce)
   }, [animal?.id, animal?.sexo, examesAndrologicos, ultimoCE])
 
-  // Buscar última IA e calcular previsão de parto para fêmeas
+  // Buscar IAs e calcular previsão de parto para fêmeas
+  // Priorizar: 1) IA prenha, 2) IA não-vazia (ignorar vazias), 3) última cronológica
   useEffect(() => {
     if (!animal?.id) return
     const isFemea = animal.sexo && (String(animal.sexo).toLowerCase().includes('f') || animal.sexo === 'F' || String(animal.sexo).toLowerCase().includes('femea'))
-    if (!isFemea) return
+    if (!isFemea) {
+      setInseminacoesFetch(null)
+      return
+    }
 
     fetch(`/api/inseminacoes?animal_id=${animal.id}`)
       .then(r => r.json())
       .then(data => {
         const inseminacoes = data.data || data || []
+        setInseminacoesFetch(inseminacoes)
         if (inseminacoes.length > 0) {
-          // Ordenar por data mais recente
-          const ordenadas = inseminacoes.sort((a, b) => 
-            new Date(b.data_inseminacao || b.data || 0) - new Date(a.data_inseminacao || a.data || 0)
-          )
-          const ultima = ordenadas[0]
-          setUltimaIA(ultima)
-          
-          // Calcular previsão de parto (9 meses = 270 dias após IA)
-          const dataIA = new Date(ultima.data_inseminacao || ultima.data)
-          const previsao = new Date(dataIA)
-          previsao.setDate(previsao.getDate() + 270)
-          setPrevisaoPartoIA(previsao)
+          const ordenadas = [...inseminacoes].sort((a, b) => {
+            const da = new Date(a.data_ia || a.data_inseminacao || a.data || 0)
+            const db = new Date(b.data_ia || b.data_inseminacao || b.data || 0)
+            return db - da
+          })
+          const ehVazia = (ia) => {
+            const r = String(ia.resultado_dg || ia.status_gestacao || '').toLowerCase()
+            return r.includes('vazia') || r.includes('vazio') || r.includes('negativo')
+          }
+          const ehPrenha = (ia) => {
+            if (ehVazia(ia)) return false
+            const r = String(ia.resultado_dg || ia.status_gestacao || '').toLowerCase()
+            return r.includes('prenha') || r.includes('pren') || r.includes('positivo') || r.trim() === 'p'
+          }
+          const iaPrenha = ordenadas.find(ehPrenha)
+          const naoVazias = ordenadas.filter(ia => !ehVazia(ia))
+          const iaParaExibir = iaPrenha || naoVazias[0] || ordenadas[0]
+          setUltimaIA(iaParaExibir)
+          const dataFonte = iaPrenha || iaParaExibir
+          const dataIAStr = dataFonte.data_ia || dataFonte.data_inseminacao || dataFonte.data
+          const dataIA = new Date(dataIAStr)
+          if ((iaPrenha || naoVazias[0]) && !isNaN(dataIA.getTime())) {
+            setPrevisaoPartoIA(new Date(dataIA.getTime() + 285 * 24 * 60 * 60 * 1000))
+          } else {
+            setPrevisaoPartoIA(null)
+          }
+        } else {
+          setInseminacoesFetch([])
         }
       })
-      .catch(() => {})
+      .catch(() => setInseminacoesFetch([]))
   }, [animal?.id, animal?.sexo])
 
   // Buscar ocorrências (histórico de serviços, vacinas, etc.)
@@ -333,10 +355,28 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
 
   // Gestação: dias de gestação e countdown
   const dataTE = animal.data_te || animal.dataTE
-  const isPrenha = String(animal.resultado_dg || animal.resultadoDG || '').toLowerCase().includes('prenha')
-  const diasGestacao = (isPrenha && dataTE) ? Math.floor((new Date() - new Date(dataTE)) / (1000 * 60 * 60 * 24)) : null
-  const previsaoParto = (isPrenha && dataTE) ? new Date(new Date(dataTE).getTime() + 285 * 24 * 60 * 60 * 1000) : null
-  const diasParaParto = previsaoParto ? Math.max(0, Math.floor((previsaoParto - new Date()) / (1000 * 60 * 60 * 24))) : null
+  const inseminacoesParaExibir = inseminacoesFetch ?? animal.inseminacoes ?? []
+  const iaPrenhaLocal = inseminacoesParaExibir.find(ia => {
+    const r = String(ia.resultado_dg || ia.status_gestacao || '').toLowerCase()
+    if (r.includes('vazia') || r.includes('vazio') || r.includes('negativo')) return false
+    return r.includes('prenha') || r.includes('pren') || r.includes('positivo') || r.trim() === 'p'
+  })
+  const dataCobertura = dataTE || (iaPrenhaLocal?.data_ia || iaPrenhaLocal?.data_inseminacao || iaPrenhaLocal?.data)
+  const resultadoAnimal = String(animal.resultado_dg || animal.resultadoDG || '').toLowerCase()
+  const estaVazia = resultadoAnimal.includes('vazia') || resultadoAnimal.includes('vazio') || resultadoAnimal.includes('negativo')
+  // Prenhez: animal.resultado_dg OU IA com resultado prenha. IA prenha tem prioridade quando há conflito (ex: animal DG vazio mas IA prenha)
+  const isPrenha = !!iaPrenhaLocal || (
+    !estaVazia && (
+      resultadoAnimal.includes('prenha') || resultadoAnimal.includes('pren') || resultadoAnimal.includes('positivo') || resultadoAnimal.trim() === 'p'
+    )
+  )
+  const diasGestacao = (isPrenha && dataCobertura) ? Math.floor((new Date() - new Date(dataCobertura)) / (1000 * 60 * 60 * 24)) : null
+  const previsaoParto = (isPrenha && dataCobertura) ? new Date(new Date(dataCobertura).getTime() + 285 * 24 * 60 * 60 * 1000) : null
+  // Só exibir previsão quando prenha (nunca quando Vazia)
+  const previsaoPartoExibir = isPrenha
+    ? ((previsaoParto && !isNaN(previsaoParto.getTime())) ? previsaoParto : (previsaoPartoIA && !isNaN(previsaoPartoIA?.getTime()) ? previsaoPartoIA : null))
+    : null
+  const diasParaParto = previsaoPartoExibir ? Math.max(0, Math.floor((previsaoPartoExibir - new Date()) / (1000 * 60 * 60 * 24))) : null
 
   // Evolução de peso (última vs primeira)
   const pesagens = animal.pesagens || []
@@ -358,8 +398,8 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
   const aptaReproducao = isFemea && mesesIdade >= 15 && !isPrenha && !(animal.data_te || animal.dataTE)
 
   // Taxa de sucesso reprodutivo (fêmeas)
-  const totalIAs = animal.inseminacoes?.length || 0
-  const prenhas = animal.inseminacoes?.filter(ia =>
+  const totalIAs = inseminacoesParaExibir?.length || 0
+  const prenhas = inseminacoesParaExibir?.filter(ia =>
     String(ia.resultado_dg || '').toLowerCase().includes('prenha')
   ).length || 0
   const taxaSucessoIA = totalIAs > 0 ? Math.round((prenhas / totalIAs) * 100) : null
@@ -381,7 +421,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
 
   // Linha do tempo: eventos recentes (SEM peso e CE para evitar repetição)
   const eventos = []
-  animal.inseminacoes?.slice(0, 3).forEach(ia => eventos.push({ data: ia.data_ia || ia.data, tipo: 'IA', label: `Inseminação - ${ia.touro_nome || ia.touro}` }))
+  inseminacoesParaExibir?.slice(0, 3).forEach(ia => eventos.push({ data: ia.data_ia || ia.data, tipo: 'IA', label: `Inseminação - ${ia.touro_nome || ia.touro}` }))
   animal.fivs?.slice(0, 2).forEach(f => eventos.push({ data: f.data_fiv, tipo: 'FIV', label: `Coleta - ${f.quantidade_oocitos} oócitos` }))
   // Removido pesagens da timeline para evitar repetição com a seção Pesagens
   examesAndrologicos.slice(0, 2).forEach(ex => eventos.push({ data: ex.data_exame, tipo: 'Andrológico', label: ex.resultado }))
@@ -456,12 +496,12 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
         isMacho && ultimoCE ? `🔬 C.E: ${ultimoCE} cm` : null,
         isMacho && ultExame ? `Exame andrológico: ${ultExame.resultado}${diasDesdeExame != null ? ` (há ${diasDesdeExame} dias)` : ''}` : null,
         ``,
-        isFemea && isPrenha && previsaoParto ? `🤰 GESTAÇÃO` : null,
+        isFemea && isPrenha && previsaoPartoExibir ? `🤰 GESTAÇÃO` : null,
         isFemea && isPrenha && diasGestacao != null ? `Dias de gestação: ${diasGestacao}` : null,
-        isFemea && isPrenha && previsaoParto ? `Previsão de parto: ${previsaoParto.toLocaleDateString('pt-BR')} (${diasParaParto} dias)` : null,
+        isFemea && isPrenha && previsaoPartoExibir ? `Previsão de parto: ${previsaoPartoExibir.toLocaleDateString('pt-BR')} (${diasParaParto} dias)` : null,
         ``,
-        isFemea && animal.inseminacoes?.length > 0 ? `💉 REPRODUÇÃO` : null,
-        isFemea && animal.inseminacoes?.length > 0 ? `Inseminações: ${animal.inseminacoes.length}` : null,
+        isFemea && inseminacoesParaExibir?.length > 0 ? `💉 REPRODUÇÃO` : null,
+        isFemea && inseminacoesParaExibir?.length > 0 ? `Inseminações: ${inseminacoesParaExibir.length}` : null,
         isFemea && taxaSucessoIA != null ? `Taxa de prenhez: ${taxaSucessoIA}%` : null,
         isFemea && animal.fivs?.length > 0 ? `Coletas FIV: ${animal.fivs.length} (${totalOocitos} oócitos)` : null,
         ``,
@@ -731,7 +771,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
                 <p className="text-xs text-gray-600 dark:text-gray-400">C.E</p>
               </div>
             )}
-            {isPrenha && diasParaParto != null && (
+            {isPrenha && previsaoPartoExibir && diasParaParto != null && (
               <div className="bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-lg p-3 border-2 border-emerald-400 dark:border-emerald-500 text-center transform transition-all duration-200 hover:scale-105">
                 <div className="flex items-center justify-center mb-0.5">
                   <HeartIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 animate-pulse" />
@@ -871,7 +911,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
           )}
 
           {/* Countdown de parto em destaque */}
-          {isPrenha && previsaoParto && (
+          {isPrenha && previsaoPartoExibir && (
             <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-5 text-white">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-white/20">
@@ -879,7 +919,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
                 </div>
                 <div>
                   <p className="text-sm opacity-90">Previsão de parto</p>
-                  <p className="text-2xl font-bold">{previsaoParto.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                  <p className="text-2xl font-bold">{previsaoPartoExibir.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                   <p className="text-sm mt-1 opacity-90">
                     {diasGestacao != null && `${diasGestacao} dias de gestação`}
                     {diasParaParto != null && diasParaParto <= 30 && ` • Faltam ${diasParaParto} dias!`}
@@ -1000,19 +1040,19 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
                 <>
                   <div className="px-6 py-3 flex justify-between items-center bg-pink-50/50 dark:bg-pink-900/20 border-t border-pink-100 dark:border-pink-800/30">
                     <span className="text-sm font-medium text-pink-800 dark:text-pink-200">
-                      Touro (última IA)
+                      {isPrenha ? 'Touro (IA prenha)' : 'Touro (última IA)'}
                     </span>
                     <span className="text-sm font-bold text-pink-600 dark:text-pink-400">
                       {ultimaIA.touro_nome || ultimaIA.touro || '-'}
                     </span>
                   </div>
-                  {previsaoPartoIA && (
+                  {previsaoPartoExibir && (
                     <div className="px-6 py-3 flex justify-between items-center bg-emerald-50/50 dark:bg-emerald-900/20 border-t border-emerald-100 dark:border-emerald-800/30">
                       <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
                         Previsão de Parto
                       </span>
                       <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                        {previsaoPartoIA.toLocaleDateString('pt-BR')} ({Math.floor((previsaoPartoIA - new Date()) / (1000 * 60 * 60 * 24))} dias)
+                        {previsaoPartoExibir.toLocaleDateString('pt-BR')} ({diasParaParto != null ? diasParaParto : 0} dias)
                       </span>
                     </div>
                   )}
@@ -1124,7 +1164,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
               )}
               <InfoRow label="Comprador/Destino" value={animal.comprador || animal.destino} />
               <InfoRow label="Receptora" value={animal.receptora} />
-              <InfoRow label="Situação ABCZ" value={animal.situacao_abcz || animal.situacaoAbcz || '-'} />
+              <InfoRow label="Situação ABCZ" value={animal.situacao_abcz || animal.situacaoAbcz || 'Não informado'} />
               {(animal.custo_aquisicao || animal.custoAquisicao) && (
                 <InfoRow label="Custo aquisição" value={formatCurrency(animal.custo_aquisicao || animal.custoAquisicao)} />
               )}
@@ -1267,7 +1307,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
           )}
 
           {/* Inseminações - FÊMEAS */}
-          {animal.inseminacoes && animal.inseminacoes.length > 0 && (
+          {inseminacoesParaExibir && inseminacoesParaExibir.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 overflow-hidden">
               <button
                 type="button"
@@ -1293,13 +1333,13 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
                   </div>
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                  {animal.inseminacoes.length} registro(s)
+                  {inseminacoesParaExibir.length} registro(s)
                   {taxaSucessoIA != null && ` • ${prenhas} prenha(s)`}
                 </p>
               </button>
               <div className={`overflow-hidden transition-all ${secoesExpandidas.inseminacoes ? 'max-h-[999px]' : 'max-h-0'}`}>
               <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {animal.inseminacoes.map((ia, i) => (
+                {inseminacoesParaExibir.map((ia, i) => (
                   <div key={ia.id || i} className="px-4 py-3 flex justify-between items-start">
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -1318,9 +1358,11 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
                         </span>
                       )}
                     </div>
-                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/40 shrink-0">
-                      {ia.tipo === 'TE' ? 'TE' : 'IA'}
-                    </span>
+                    {ia.tipo === 'TE' && (
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-pink-100 text-pink-800 dark:bg-pink-900/40 shrink-0">
+                        TE
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

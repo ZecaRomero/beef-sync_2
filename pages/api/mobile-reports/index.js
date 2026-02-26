@@ -7,25 +7,34 @@ import { query } from '../../../lib/database'
 import { sendSuccess, sendError, sendMethodNotAllowed } from '../../../utils/apiResponse'
 
 const TIPOS_RELATORIOS = [
+  { key: 'resumo_geral', label: '📊 Visão Geral', category: 'Gestão' },
   { key: 'pesagens', label: 'Pesagens', category: 'Manejo' },
   { key: 'resumo_pesagens', label: 'Resumo de Pesagens', category: 'Manejo' },
-  { key: 'femeas_ia', label: 'Fêmeas que Fizeram IA', category: 'Reprodução' },
-  { key: 'resumo_femeas_ia', label: 'Resumo de Fêmeas IA', category: 'Reprodução' },
   { key: 'inseminacoes', label: 'Inseminações', category: 'Reprodução' },
+  { key: 'resumo_femeas_ia', label: 'Resumo de Fêmeas IA', category: 'Reprodução' },
   { key: 'gestacoes', label: 'Gestações', category: 'Reprodução' },
   { key: 'nascimentos', label: 'Nascimentos', category: 'Reprodução' },
+  { key: 'resumo_nascimentos', label: 'Resumo de Nascimentos', category: 'Reprodução' },
   { key: 'previsoes_parto', label: 'Previsões de Parto', category: 'Reprodução' },
   { key: 'exames_andrologicos', label: 'Exames Andrológicos', category: 'Reprodução' },
   { key: 'transferencias_embrioes', label: 'Transferências de Embriões', category: 'Reprodução' },
+  { key: 'coleta_fiv', label: 'Coleta FIV', category: 'Reprodução' },
+  { key: 'receptoras_chegaram', label: 'Receptoras que Chegaram', category: 'Reprodução' },
+  { key: 'receptoras_faltam_parir', label: 'Receptoras que Faltam Parir', category: 'Reprodução' },
+  { key: 'receptoras_faltam_diagnostico', label: 'Receptoras que Faltam Diagnóstico', category: 'Reprodução' },
   { key: 'calendario_reprodutivo', label: '📅 Calendário Reprodutivo', category: 'Reprodução' },
   { key: 'mortes', label: 'Mortes', category: 'Sanidade' },
   { key: 'vacinacoes', label: 'Vacinações', category: 'Sanidade' },
+  { key: 'ocorrencias', label: 'Ocorrências', category: 'Sanidade' },
   { key: 'estoque_semen', label: 'Estoque de Sêmen', category: 'Estoque' },
   { key: 'abastecimento_nitrogenio', label: 'Abastecimento de Nitrogênio', category: 'Estoque' },
   { key: 'animais_piquetes', label: 'Animais por Piquete', category: 'Localização' },
+  { key: 'notas_fiscais', label: 'Notas Fiscais', category: 'Documentos' },
   { key: 'movimentacoes_financeiras', label: 'Movimentações Financeiras', category: 'Financeiro' },
+  { key: 'custos', label: 'Custos', category: 'Financeiro' },
   { key: 'ranking_animais_avaliados', label: 'Ranking dos Animais Avaliados', category: 'Gestão' },
-  { key: 'ranking_pmgz', label: '🏆 Ranking de animais', category: 'Gestão' }
+  { key: 'ranking_pmgz', label: '🏆 Ranking de animais', category: 'Gestão' },
+  { key: 'boletim_rebanho', label: 'Boletim do Rebanho', category: 'Gestão' }
 ]
 
 async function getEnabled() {
@@ -45,6 +54,15 @@ function toDateStr(v) {
   if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) return v.split('T')[0]
   if (v instanceof Date) return v.toISOString().split('T')[0]
   return String(v)
+}
+
+function validarDataRange(str) {
+  if (!str || typeof str !== 'string') return null
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const y = parseInt(m[1], 10)
+  if (y < 1900 || y > 2100) return null
+  return str.split('T')[0]
 }
 
 // Filtrar nomes de touros (LANDROVER, MALCOM SANT ANNA, etc.) que foram cadastrados como piquete por engano.
@@ -80,26 +98,297 @@ export default async function handler(req, res) {
     const { tipo, startDate, endDate } = req.query
     const enabled = await getEnabled()
 
-    // GET sem tipo: retorna config
+    // GET sem tipo: retorna config (quando enabled vazio, retorna todos como habilitados)
     if (!tipo) {
+      const allKeys = TIPOS_RELATORIOS.map(t => t.key)
+      // Garantir que resumo_geral esteja sempre habilitado
+      const enabledOut = enabled.length > 0 ? [...new Set([...enabled, 'resumo_geral'])] : allKeys
       return sendSuccess(res, {
-        enabled,
+        enabled: enabledOut,
         allTypes: TIPOS_RELATORIOS
       })
     }
 
-    // Verificar se o tipo está habilitado
-    if (!enabled.includes(tipo)) {
+    // Verificar se o tipo está habilitado (quando vazio, permite todos)
+    const allKeys = TIPOS_RELATORIOS.map(t => t.key)
+    const enabledEffective = enabled.length > 0 ? [...new Set([...enabled, 'resumo_geral'])] : allKeys
+    if (!enabledEffective.includes(tipo)) {
       return sendError(res, 'Relatório não disponível para mobile', 403)
     }
 
-    const start = toDateStr(startDate) || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
-    const end = toDateStr(endDate) || new Date().toISOString().split('T')[0]
+    const hoje = new Date()
+    const start = validarDataRange(startDate) || validarDataRange(toDateStr(startDate)) || new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0]
+    const end = validarDataRange(endDate) || validarDataRange(toDateStr(endDate)) || hoje.toISOString().split('T')[0]
 
     let data = []
     let resumo = null
 
     switch (tipo) {
+      case 'resumo_geral': {
+        try {
+          // 1. Totais do Rebanho (Ativos)
+          const qRebanho = await query(`
+            SELECT 
+              COUNT(*) as total,
+              COUNT(CASE WHEN sexo = 'Macho' THEN 1 END) as machos,
+              COUNT(CASE WHEN sexo = 'Fêmea' THEN 1 END) as femeas,
+              COUNT(CASE WHEN data_nascimento > NOW() - INTERVAL '12 months' THEN 1 END) as bezerros,
+              COUNT(CASE WHEN data_nascimento <= NOW() - INTERVAL '12 months' AND data_nascimento > NOW() - INTERVAL '24 months' THEN 1 END) as novilhas,
+              COUNT(CASE WHEN data_nascimento <= NOW() - INTERVAL '24 months' THEN 1 END) as adultos
+            FROM animais 
+            WHERE situacao = 'Ativo'
+          `)
+          const statsRebanho = qRebanho.rows[0]
+
+          // 2. Reprodução (Gestações Ativas) - gestacoes + inseminacoes prenhas
+          let gestacoesAtivas = 0
+          try {
+            const qGestacoes = await query(`
+              SELECT COUNT(*) as total FROM gestacoes WHERE situacao IN ('Ativa', 'Em Gestação')
+            `)
+            gestacoesAtivas = parseInt(qGestacoes.rows[0]?.total || 0, 10)
+          } catch (_) {}
+          let prenhasIA = 0
+          try {
+            const colIA = await query(`
+              SELECT column_name FROM information_schema.columns
+              WHERE table_name = 'inseminacoes' AND column_name IN ('resultado_dg', 'status_gestacao')
+            `)
+            const temRd = colIA.rows?.some(r => r.column_name === 'resultado_dg')
+            const temSg = colIA.rows?.some(r => r.column_name === 'status_gestacao')
+            if (temRd || temSg) {
+              const prenhaCond = [
+                temRd && "(TRIM(COALESCE(i.resultado_dg,'')) = 'P' OR LOWER(COALESCE(i.resultado_dg,'')) LIKE '%pren%' OR LOWER(COALESCE(i.resultado_dg,'')) LIKE '%positivo%')",
+                temSg && "(TRIM(COALESCE(i.status_gestacao,'')) = 'P' OR LOWER(COALESCE(i.status_gestacao,'')) LIKE '%pren%' OR LOWER(COALESCE(i.status_gestacao,'')) LIKE '%positivo%')"
+              ].filter(Boolean).join(' OR ')
+              const qPrenhas = await query(`
+                SELECT COUNT(DISTINCT i.animal_id) as total
+                FROM inseminacoes i
+                JOIN animais a ON a.id = i.animal_id AND a.situacao = 'Ativo'
+                WHERE (${prenhaCond})
+              `)
+              prenhasIA = parseInt(qPrenhas.rows[0]?.total || 0, 10)
+            }
+          } catch (_) {}
+          const totalGestacoesAtivas = gestacoesAtivas + prenhasIA
+          
+          // 3. Nascimentos (no período)
+          const qNascimentos = await query(`
+            SELECT COUNT(*) as total
+            FROM nascimentos
+            WHERE data_nascimento >= $1 AND data_nascimento <= $2
+          `, [start, end])
+
+          // 4. Peso Médio (Última pesagem de animais ativos)
+          // Aproximação: média das últimas pesagens dos últimos 90 dias
+          const qPeso = await query(`
+            SELECT AVG(p.peso) as media
+            FROM pesagens p
+            JOIN animais a ON a.id = p.animal_id
+            WHERE a.situacao = 'Ativo'
+              AND p.data >= NOW() - INTERVAL '90 days'
+          `)
+
+          // 5. Financeiro (Custos e Vendas no período)
+          // Custos
+          const qCustos = await query(`
+            SELECT SUM(valor) as total
+            FROM custos
+            WHERE data >= $1 AND data <= $2
+          `, [start, end])
+          
+          // Vendas (Animais vendidos ou notas de saída)
+          // Tentando pegar de animais vendidos primeiro
+          const qVendasAnimais = await query(`
+            SELECT SUM(valor_venda) as total
+            FROM animais
+            WHERE situacao = 'Vendido' AND updated_at >= $1 AND updated_at <= $2
+          `, [start, end])
+
+          // 6. Sanidade (Vacinas no período)
+          let vacinasTotal = 0
+          try {
+            const qVacinas = await query(`
+              SELECT COUNT(*) as total FROM vacinacoes WHERE data_vacinacao >= $1 AND data_vacinacao <= $2
+            `, [start, end])
+            vacinasTotal = parseInt(qVacinas.rows[0]?.total || 0)
+          } catch (e) { console.log('Sem tabela vacinacoes ou erro', e.message) }
+
+          // 7. Mortes (no período)
+          let mortesTotal = 0
+          try {
+             const qMortes = await query(`
+               SELECT COUNT(*) as total FROM mortes WHERE data_morte >= $1 AND data_morte <= $2
+             `, [start, end])
+             mortesTotal = parseInt(qMortes.rows[0]?.total || 0)
+          } catch (e) { console.log('Sem tabela mortes ou erro', e.message) }
+
+          // 8. Top Piquetes (Ocupação Atual)
+          let topPiquetes = []
+          try {
+            const qPiquetes = await query(`
+              SELECT piquete_atual, COUNT(*) as qtd 
+              FROM animais 
+              WHERE situacao = 'Ativo' AND piquete_atual IS NOT NULL 
+              GROUP BY piquete_atual 
+              ORDER BY qtd DESC 
+              LIMIT 5
+            `)
+            topPiquetes = qPiquetes.rows.map(r => ({ label: r.piquete_atual, valor: parseInt(r.qtd) }))
+          } catch (e) { console.log('Erro top piquetes', e.message) }
+
+          // 9. Previsão de Partos (Próximos 30 dias)
+          let partosPrevistos = 0
+          try {
+             // Gestação bovina ~290 dias (ou 9 meses e meio). 
+             // Buscamos gestações ativas onde (data_cobertura + 290 dias) está entre hoje e hoje+30
+             const qPartos = await query(`
+               SELECT COUNT(*) as total 
+               FROM gestacoes 
+               WHERE situacao = 'Ativa' 
+               AND (data_cobertura + INTERVAL '290 days') BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
+             `)
+             partosPrevistos = parseInt(qPartos.rows[0]?.total || 0)
+          } catch (e) { console.log('Erro previsao partos', e.message) }
+
+          // 10. Feed de Últimas Atividades (Recentes)
+          let ultimasAtividades = []
+          try {
+            // Union de Pesagens, Nascimentos, Vacinações (Serviços se tiver, ou vacinacoes tab)
+            // Assumindo tabelas: pesagens, nascimentos, vacinacoes
+            const qFeed = await query(`
+              SELECT * FROM (
+                SELECT 'Pesagem' as tipo, 'Animal ID ' || animal_id || ': ' || peso || 'kg' as detalhe, data as data_evento FROM pesagens
+                UNION ALL
+                SELECT 'Nascimento' as tipo, 'Série ' || serie || ' (' || sexo || ')' as detalhe, data_nascimento as data_evento FROM nascimentos
+                UNION ALL
+                SELECT 'Vacinação' as tipo, 'Animal ID ' || animal_id as detalhe, data_vacinacao as data_evento FROM vacinacoes
+              ) as combined
+              ORDER BY data_evento DESC
+              LIMIT 7
+            `)
+            ultimasAtividades = qFeed.rows
+          } catch (e) { console.log('Erro feed atividades', e.message) }
+
+          resumo = {
+            rebanho: {
+              total: parseInt(statsRebanho.total || 0),
+              machos: parseInt(statsRebanho.machos || 0),
+              femeas: parseInt(statsRebanho.femeas || 0),
+              bezerros: parseInt(statsRebanho.bezerros || 0),
+              novilhas: parseInt(statsRebanho.novilhas || 0),
+              adultos: parseInt(statsRebanho.adultos || 0)
+            },
+            reproducao: {
+              gestacoes_ativas: totalGestacoesAtivas,
+              nascimentos_periodo: parseInt(qNascimentos.rows[0]?.total || 0),
+              partos_previstos_30d: partosPrevistos
+            },
+            peso: {
+              media_recente: parseFloat(qPeso.rows[0]?.media || 0).toFixed(1)
+            },
+            financeiro: {
+              custos: parseFloat(qCustos.rows[0]?.total || 0),
+              vendas: parseFloat(qVendasAnimais.rows[0]?.total || 0)
+            },
+            extras: {
+               top_piquetes: topPiquetes,
+               ultimas_atividades: ultimasAtividades
+            }
+          }
+
+          // Dados estruturados em Módulos para os Cards do Mobile
+          const modules = [
+            {
+              modulo: 'Rebanho',
+              dados: {
+                'Total': statsRebanho.total || 0,
+                'Machos': statsRebanho.machos || 0,
+                'Fêmeas': statsRebanho.femeas || 0,
+                'Bezerros': statsRebanho.bezerros || 0,
+                'Novilhas': statsRebanho.novilhas || 0,
+                'Adultos': statsRebanho.adultos || 0
+              }
+            },
+            {
+              modulo: 'Reprodução',
+              dados: {
+                'Gestações Ativas': totalGestacoesAtivas,
+                'Nascimentos': parseInt(qNascimentos.rows[0]?.total || 0),
+                'Partos (30d)': partosPrevistos
+              }
+            },
+            {
+              modulo: 'Peso',
+              dados: {
+                'Média Recente': (parseFloat(qPeso.rows[0]?.media || 0).toFixed(1)) + ' kg'
+              }
+            },
+            {
+              modulo: 'Financeiro',
+              dados: {
+                'Custos': 'R$ ' + (parseFloat(qCustos.rows[0]?.total || 0).toFixed(2)),
+                'Vendas': 'R$ ' + (parseFloat(qVendasAnimais.rows[0]?.total || 0).toFixed(2))
+              }
+            }
+          ]
+          
+          if (vacinasTotal > 0 || mortesTotal > 0) {
+            modules.push({
+              modulo: 'Sanidade',
+              dados: {
+                'Vacinações': vacinasTotal,
+                'Mortes': mortesTotal
+              }
+            })
+          }
+
+          // Dados para gráficos
+          const chartData = [
+            { label: 'Bezerros (0-12m)', valor: statsRebanho.bezerros, categoria: 'Idade' },
+            { label: 'Novilhas/os (12-24m)', valor: statsRebanho.novilhas, categoria: 'Idade' },
+            { label: 'Adultos (>24m)', valor: statsRebanho.adultos, categoria: 'Idade' },
+            { label: 'Machos', valor: statsRebanho.machos, categoria: 'Sexo' },
+            { label: 'Fêmeas', valor: statsRebanho.femeas, categoria: 'Sexo' }
+          ]
+          
+          // Retornar modules em data (para os cards) e chartData em graficos
+          // Hack: Atribuir modules a data para compatibilidade com o frontend atual
+          data = modules
+          // Adicionar propriedade extra ao objeto data se fosse array, mas JS arrays são objetos
+          // Melhor retornar um objeto wrapper no json final, mas a estrutura espera { data: ... }
+          // Vou injetar 'graficos' no json final modificando a logica de retorno lá embaixo ou aqui
+          
+          // A estrutura de retorno padrão é res.json({ data: data, resumo: resumo })
+          // Vou retornar data = modules. E vou adicionar graficos no resumo ou em um campo extra se eu puder alterar o handler
+          
+          // Workaround: Anexar graficos ao primeiro item de data ou usar um campo especial
+          // Mas o ideal é retornar { data: modules, graficos: chartData }
+          // O handler lá embaixo faz: return sendSuccess(res, { data, resumo }) -> que vira { success: true, data: { data, resumo } } ??
+          // Não, sendSuccess(res, payload) -> { success: true, data: payload } se payload for array?
+          // Ver utils/apiResponse.js se possível. Mas geralmente é res.json({ success: true, data: ... })
+          
+          // O handler atual faz:
+          // return sendSuccess(res, { data, resumo }) se eu mudar a variavel data para ser os modulos.
+          // Vou adicionar a propriedade graficos ao objeto de retorno.
+          
+          // Mas 'data' é declarado como let data = [].
+          // Se eu atribuir data = modules, o retorno será { data: modules, resumo: ... }
+          // Eu preciso passar 'graficos' também.
+          
+          // Vou monkey-patch o objeto de resposta dentro deste bloco se possível, mas o return está no fim da função.
+          // Vou adicionar 'graficos' ao objeto 'resumo' por enquanto, ou melhor:
+          resumo.graficos = chartData
+
+
+        } catch (e) {
+          console.error('Erro no Resumo Geral:', e)
+          data = []
+          resumo = { erro: 'Falha ao carregar resumo geral' }
+        }
+        break
+      }
+
       case 'pesagens': {
         const r = await query(`
           SELECT p.id, p.animal_id, p.peso, p.ce, p.data, p.observacoes,
@@ -254,18 +543,23 @@ export default async function handler(req, res) {
       case 'inseminacoes': {
         const col = await query(`
           SELECT column_name FROM information_schema.columns
-          WHERE table_name = 'inseminacoes' AND column_name IN ('data_ia', 'data_inseminacao', 'data')
+          WHERE table_name = 'inseminacoes' AND column_name IN ('data_ia', 'data_inseminacao', 'data', 'resultado_dg', 'status_gestacao', 'touro_nome', 'touro')
         `)
         const dateCol = col.rows?.find(r => r.column_name === 'data_ia') ? 'data_ia'
           : col.rows?.find(r => r.column_name === 'data_inseminacao') ? 'data_inseminacao' : 'data'
+        const colsExtras = ['i.id', 'i.animal_id', `i.${dateCol}`, 'i.tecnico', 'a.serie', 'a.rg', 'a.nome as animal_nome']
+        if (col.rows?.some(r => r.column_name === 'resultado_dg')) colsExtras.push('i.resultado_dg')
+        if (col.rows?.some(r => r.column_name === 'status_gestacao')) colsExtras.push('i.status_gestacao')
+        if (col.rows?.some(r => r.column_name === 'touro_nome')) colsExtras.push('i.touro_nome')
+        if (col.rows?.some(r => r.column_name === 'touro')) colsExtras.push('i.touro')
 
         const r = await query(`
-          SELECT i.*, a.serie, a.rg, a.nome as animal_nome
+          SELECT ${colsExtras.join(', ')}
           FROM inseminacoes i
           LEFT JOIN animais a ON a.id = i.animal_id
           WHERE i.${dateCol} >= $1 AND i.${dateCol} <= $2
           ORDER BY i.${dateCol} DESC
-          LIMIT 500
+          LIMIT 1500
         `, [start, end])
         data = (r.rows || []).map(row => {
           const dataVal = row.data_ia || row.data_inseminacao || row.data
@@ -283,41 +577,122 @@ export default async function handler(req, res) {
       case 'resumo_femeas_ia': {
         const col = await query(`
           SELECT column_name FROM information_schema.columns
-          WHERE table_name = 'inseminacoes' AND column_name IN ('data_ia', 'data_inseminacao', 'data')
+          WHERE table_name = 'inseminacoes' AND column_name IN ('data_ia', 'data_inseminacao', 'data', 'resultado_dg', 'status_gestacao')
         `)
         const dateCol = col.rows?.find(r => r.column_name === 'data_ia') ? 'data_ia'
           : col.rows?.find(r => r.column_name === 'data_inseminacao') ? 'data_inseminacao' : 'data'
+        const temResultadoDg = col.rows?.some(r => r.column_name === 'resultado_dg')
+        const temStatusGestacao = col.rows?.some(r => r.column_name === 'status_gestacao')
 
-        const r = await query(`
-          SELECT COUNT(*) as total,
-                 COUNT(CASE WHEN resultado_dg = 'Prenha' OR status_gestacao = 'Prenha' OR LOWER(COALESCE(resultado_dg,'') || COALESCE(status_gestacao,'')) LIKE '%prenha%' THEN 1 END) as prenhas
-          FROM inseminacoes
-          WHERE ${dateCol} >= $1 AND ${dateCol} <= $2
-        `, [start, end])
+        let r
+        if (temResultadoDg || temStatusGestacao) {
+          // P, Prenha, Prenhez, Positivo e variações (DG costuma usar P ou Positivo)
+          const prenhaCond = [
+            temResultadoDg && "(TRIM(COALESCE(resultado_dg,'')) = 'P' OR LOWER(COALESCE(resultado_dg,'')) LIKE '%pren%' OR LOWER(COALESCE(resultado_dg,'')) LIKE '%positivo%')",
+            temStatusGestacao && "(TRIM(COALESCE(status_gestacao,'')) = 'P' OR LOWER(COALESCE(status_gestacao,'')) LIKE '%pren%' OR LOWER(COALESCE(status_gestacao,'')) LIKE '%positivo%')"
+          ].filter(Boolean).join(' OR ')
+          r = await query(`
+            SELECT COUNT(*) as total,
+                   COUNT(CASE WHEN ${prenhaCond} THEN 1 END) as prenhas
+            FROM inseminacoes
+            WHERE ${dateCol} >= $1 AND ${dateCol} <= $2
+          `, [start, end])
+        } else {
+          r = await query(`
+            SELECT COUNT(*) as total, 0 as prenhas
+            FROM inseminacoes
+            WHERE ${dateCol} >= $1 AND ${dateCol} <= $2
+          `, [start, end])
+        }
         const row = r.rows?.[0]
         const total = parseInt(row?.total || 0, 10)
         const prenhas = parseInt(row?.prenhas || 0, 10)
         resumo = { total, prenhas, taxaPrenhez: total > 0 ? ((prenhas / total) * 100).toFixed(1) + '%' : '0%' }
         data = [{ _resumo: resumo }]
+        if (prenhas > 0 && (temResultadoDg || temStatusGestacao)) {
+          const prenhaCondList = [
+            temResultadoDg && "(TRIM(COALESCE(i.resultado_dg,'')) = 'P' OR LOWER(COALESCE(i.resultado_dg,'')) LIKE '%pren%' OR LOWER(COALESCE(i.resultado_dg,'')) LIKE '%positivo%')",
+            temStatusGestacao && "(TRIM(COALESCE(i.status_gestacao,'')) = 'P' OR LOWER(COALESCE(i.status_gestacao,'')) LIKE '%pren%' OR LOWER(COALESCE(i.status_gestacao,'')) LIKE '%positivo%')"
+          ].filter(Boolean).join(' OR ')
+          const colsList = ['i.id', 'i.animal_id', `i.${dateCol}`, 'a.serie', 'a.rg', 'a.nome']
+          if (col.rows?.some(r => r.column_name === 'touro_nome')) colsList.push('i.touro_nome')
+          else if (col.rows?.some(r => r.column_name === 'touro')) colsList.push('i.touro')
+          const rList = await query(`
+            SELECT ${colsList.join(', ')}
+            FROM inseminacoes i
+            JOIN animais a ON a.id = i.animal_id
+            WHERE i.${dateCol} >= $1 AND i.${dateCol} <= $2 AND (${prenhaCondList})
+            ORDER BY i.${dateCol} DESC
+            LIMIT 1000
+          `, [start, end])
+          const listaPrenhas = (rList.rows || []).map(row => ({
+            animal: row.nome || `${row.serie || ''} ${row.rg || ''}`.trim(),
+            data: toDateStr(row.data_ia || row.data_inseminacao || row.data),
+            touro: row.touro_nome || row.touro
+          }))
+          data = [{ _resumo: resumo }, ...listaPrenhas]
+        }
         break
       }
 
       case 'gestacoes': {
         try {
+          const colCheck = await query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'gestacoes' AND column_name IN ('data_gestacao', 'data_cobertura')
+          `)
+          const temDataGestacao = colCheck.rows?.some(r => r.column_name === 'data_gestacao')
+          const whereExtra = temDataGestacao ? ' OR (g.data_gestacao >= $1 AND g.data_gestacao <= $2)' : ''
+          const orderCol = temDataGestacao ? 'COALESCE(g.data_cobertura, g.data_gestacao)' : 'g.data_cobertura'
+
           const r = await query(`
-            SELECT g.*, a.serie, a.rg, a.nome as animal_nome
+            SELECT g.*
             FROM gestacoes g
-            LEFT JOIN animais a ON a.id = g.animal_id
-            WHERE (g.data_cobertura >= $1 AND g.data_cobertura <= $2)
-               OR (g.data_gestacao >= $1 AND g.data_gestacao <= $2)
-            ORDER BY COALESCE(g.data_cobertura, g.data_gestacao) DESC
-            LIMIT 300
+            WHERE (g.data_cobertura >= $1 AND g.data_cobertura <= $2)${whereExtra}
+            ORDER BY ${orderCol} DESC
+            LIMIT 1000
           `, [start, end])
           data = (r.rows || []).map(row => ({
-            animal: `${row.serie || ''} ${row.rg || ''}`.trim() || row.animal_nome || row.receptora_nome,
+            animal: row.receptora_nome || `${row.receptora_serie || ''} ${row.receptora_rg || ''}`.trim() || `${row.mae_serie || ''} ${row.mae_rg || ''}`.trim(),
             data: toDateStr(row.data_cobertura || row.data_gestacao),
-            situacao: row.situacao
+            situacao: row.situacao,
+            origem: 'TE'
           }))
+
+          // Incluir inseminações prenhas (IA) quando tabela gestacoes vazia ou para complementar
+          const colIA = await query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'inseminacoes' AND column_name IN ('data_ia', 'data_inseminacao', 'data', 'resultado_dg', 'status_gestacao')
+          `)
+          const dateColIA = colIA.rows?.find(r => r.column_name === 'data_ia') ? 'data_ia'
+            : colIA.rows?.find(r => r.column_name === 'data_inseminacao') ? 'data_inseminacao' : 'data'
+          const temResultadoIA = colIA.rows?.some(r => r.column_name === 'resultado_dg') || colIA.rows?.some(r => r.column_name === 'status_gestacao')
+          if (temResultadoIA) {
+            const temRd = colIA.rows?.some(r => r.column_name === 'resultado_dg')
+            const temSg = colIA.rows?.some(r => r.column_name === 'status_gestacao')
+            const prenhaCondIA = [
+              temRd && "(TRIM(COALESCE(i.resultado_dg,'')) = 'P' OR LOWER(COALESCE(i.resultado_dg,'')) LIKE '%pren%' OR LOWER(COALESCE(i.resultado_dg,'')) LIKE '%positivo%')",
+              temSg && "(TRIM(COALESCE(i.status_gestacao,'')) = 'P' OR LOWER(COALESCE(i.status_gestacao,'')) LIKE '%pren%' OR LOWER(COALESCE(i.status_gestacao,'')) LIKE '%positivo%')"
+            ].filter(Boolean).join(' OR ')
+            const ri = await query(`
+              SELECT i.${dateColIA} as data_gest, a.serie, a.rg, a.nome
+              FROM inseminacoes i
+              JOIN animais a ON a.id = i.animal_id
+              WHERE i.${dateColIA} >= $1 AND i.${dateColIA} <= $2
+                AND (${prenhaCondIA})
+              ORDER BY i.${dateColIA} DESC
+              LIMIT 1000
+            `, [start, end])
+            ;(ri.rows || []).forEach(row => {
+              data.push({
+                animal: row.nome || `${row.serie || ''} ${row.rg || ''}`.trim(),
+                data: toDateStr(row.data_gest),
+                situacao: 'Prenha',
+                origem: 'IA'
+              })
+            })
+            data.sort((a, b) => (b.data || '').localeCompare(a.data || ''))
+          }
         } catch (e) {
           data = []
         }
@@ -332,7 +707,7 @@ export default async function handler(req, res) {
             LEFT JOIN animais a ON CONCAT(a.serie, a.rg) = CONCAT(COALESCE(n.serie,''), COALESCE(n.rg,''))
             WHERE n.data_nascimento >= $1 AND n.data_nascimento <= $2
             ORDER BY n.data_nascimento DESC
-            LIMIT 300
+            LIMIT 500
           `, [start, end])
           data = (r.rows || []).map(row => ({
             animal: `${row.serie || ''} ${row.rg || ''}`.trim() || row.animal_nome,
@@ -458,22 +833,83 @@ export default async function handler(req, res) {
 
       case 'previsoes_parto': {
         try {
-          const r = await query(`
-            SELECT g.id, g.receptora_nome, g.receptora_serie, g.receptora_rg,
-                   g.data_cobertura, g.situacao,
-                   (g.data_cobertura::date + INTERVAL '285 days')::date as previsao
-            FROM gestacoes g
-            WHERE (g.situacao = 'Em Gestação' OR g.situacao = 'Ativa' OR g.situacao IS NULL)
-              AND g.data_cobertura >= $1 AND g.data_cobertura <= $2
-            ORDER BY previsao ASC
-            LIMIT 200
-          `, [start, end])
-          data = (r.rows || []).map(row => ({
-            receptora: row.receptora_nome || `${row.receptora_serie || ''} ${row.receptora_rg || ''}`.trim(),
-            data_cobertura: toDateStr(row.data_cobertura),
-            previsao_parto: toDateStr(row.previsao),
-            situacao: row.situacao
-          }))
+          const todas = []
+          // 1. Gestações ativas - filtrar por previsão no período (parto previsto)
+          try {
+            const rg = await query(`
+              SELECT g.id, g.receptora_nome, g.receptora_serie, g.receptora_rg,
+                     g.data_cobertura, g.situacao, g.pai_serie, g.pai_rg,
+                     (g.data_cobertura::date + INTERVAL '285 days')::date as previsao
+              FROM gestacoes g
+              WHERE (g.situacao = 'Em Gestação' OR g.situacao = 'Ativa' OR g.situacao IS NULL)
+                AND (g.data_cobertura::date + INTERVAL '285 days')::date >= $1
+                AND (g.data_cobertura::date + INTERVAL '285 days')::date <= $2
+              ORDER BY previsao ASC
+              LIMIT 500
+            `, [start, end])
+            ;(rg.rows || []).forEach(row => {
+              const touro = row.pai_serie && row.pai_rg ? `${row.pai_serie} ${row.pai_rg}` : null
+              todas.push({
+                animal: row.receptora_nome || `${row.receptora_serie || ''} ${row.receptora_rg || ''}`.trim(),
+                data_cobertura: toDateStr(row.data_cobertura),
+                previsao_parto: toDateStr(row.previsao),
+                touro,
+                origem: 'gestacao'
+              })
+            })
+          } catch (_) {}
+
+          // 2. Inseminações prenhas (data_ia + 285 dias)
+          try {
+            const colCheck = await query(`
+              SELECT column_name FROM information_schema.columns
+              WHERE table_name = 'inseminacoes' AND column_name IN ('resultado_dg', 'status_gestacao')
+            `)
+            const temPrenha = colCheck.rows?.length > 0
+            if (temPrenha) {
+              const ri = await query(`
+                SELECT i.data_ia, i.touro_nome, i.touro, a.serie, a.rg, a.nome,
+                       (i.data_ia::date + INTERVAL '285 days')::date as previsao
+                FROM inseminacoes i
+                JOIN animais a ON a.id = i.animal_id
+                WHERE (i.data_ia::date + INTERVAL '285 days')::date >= $1
+                  AND (i.data_ia::date + INTERVAL '285 days')::date <= $2
+                  AND (TRIM(COALESCE(i.resultado_dg,'') || COALESCE(i.status_gestacao,'')) = 'P'
+                    OR LOWER(COALESCE(i.resultado_dg,'') || COALESCE(i.status_gestacao,'')) LIKE '%pren%'
+                    OR LOWER(COALESCE(i.resultado_dg,'') || COALESCE(i.status_gestacao,'')) LIKE '%positivo%')
+                ORDER BY previsao ASC
+                LIMIT 500
+              `, [start, end])
+              ;(ri.rows || []).forEach(row => {
+                todas.push({
+                  animal: row.nome || `${row.serie || ''} ${row.rg || ''}`.trim(),
+                  data_cobertura: toDateStr(row.data_ia),
+                  previsao_parto: toDateStr(row.previsao),
+                  touro: row.touro_nome || row.touro,
+                  origem: 'IA'
+                })
+              })
+            }
+          } catch (_) {}
+
+          // Ordenar por previsão e limitar
+          data = todas
+            .sort((a, b) => (a.previsao_parto || '').localeCompare(b.previsao_parto || ''))
+            .slice(0, 200)
+
+          // Resumo: total e por touro
+          const porTouro = {}
+          data.forEach(d => {
+            const t = (d.touro || 'Não informado').trim() || 'Não informado'
+            porTouro[t] = (porTouro[t] || 0) + 1
+          })
+          const totaisTouro = Object.entries(porTouro)
+            .sort((a, b) => b[1] - a[1])
+            .map(([nome, qtd]) => `${nome}: ${qtd}`)
+          resumo = {
+            'Total de previsões': data.length,
+            'Prenhas por touro': totaisTouro.slice(0, 10).join(' | ') || '-'
+          }
         } catch (e) {
           data = []
         }
@@ -492,7 +928,7 @@ export default async function handler(req, res) {
             FROM transferencias_embrioes te
             WHERE te.${dateCol} >= $1 AND te.${dateCol} <= $2
             ORDER BY te.${dateCol} DESC
-            LIMIT 200
+            LIMIT 500
           `, [start, end])
           data = (r.rows || []).map(row => ({
             receptora: row.receptora_nome || row.receptora_id,
@@ -812,6 +1248,268 @@ export default async function handler(req, res) {
           ]
         } catch (e) {
           console.error('Erro ao buscar ranking PMGZ:', e)
+          data = []
+        }
+        break
+      }
+
+      case 'coleta_fiv': {
+        try {
+          const r = await query(`
+            SELECT cf.id, cf.data_fiv, cf.data_transferencia, cf.doadora_nome, cf.quantidade_oocitos, cf.touro, cf.laboratorio, cf.veterinario, cf.observacoes
+            FROM coleta_fiv cf
+            WHERE cf.data_fiv >= $1 AND cf.data_fiv <= $2
+            ORDER BY cf.data_fiv DESC
+            LIMIT 500
+          `, [start, end])
+          data = (r.rows || []).map(row => ({
+            data: toDateStr(row.data_fiv),
+            doadora: row.doadora_nome,
+            oocitos: row.quantidade_oocitos,
+            touro: row.touro,
+            data_transferencia: toDateStr(row.data_transferencia),
+            laboratorio: row.laboratorio
+          }))
+          const totalOocitos = data.reduce((s, d) => s + (parseInt(d.oocitos) || 0), 0)
+          resumo = { 'Total de coletas': data.length, 'Total de oócitos': totalOocitos }
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'receptoras_chegaram': {
+        try {
+          const colCheck = await query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'notas_fiscais' AND column_name IN ('eh_receptoras', 'data_chegada_animais', 'data_compra')
+          `)
+          const temEhReceptoras = colCheck.rows?.some(r => r.column_name === 'eh_receptoras')
+          const dataCol = colCheck.rows?.some(r => r.column_name === 'data_chegada_animais') ? 'COALESCE(nf.data_chegada_animais, nf.data_compra)' : 'nf.data_compra'
+          if (temEhReceptoras) {
+            const r = await query(`
+              SELECT nf.id, nf.numero_nf, nf.fornecedor, nf.quantidade_receptoras, ${dataCol}::date as data_chegada
+              FROM notas_fiscais nf
+              WHERE nf.eh_receptoras = true AND nf.tipo = 'entrada'
+                AND ${dataCol}::date >= $1 AND ${dataCol}::date <= $2
+              ORDER BY ${dataCol} DESC
+              LIMIT 100
+            `, [start, end])
+            data = (r.rows || []).map(row => ({
+              nf: row.numero_nf,
+              fornecedor: row.fornecedor,
+              quantidade: row.quantidade_receptoras,
+              data: toDateStr(row.data_chegada)
+            }))
+            resumo = { 'NFs de receptoras': data.length, 'Total receptoras': data.reduce((s, d) => s + (parseInt(d.quantidade) || 0), 0) }
+          } else {
+            data = []
+            resumo = { info: 'Tabela notas_fiscais sem coluna eh_receptoras' }
+          }
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'receptoras_faltam_parir': {
+        try {
+          const r = await query(`
+            WITH gestacoes_ativas AS (
+              SELECT g.id, g.receptora_nome, g.receptora_serie, g.receptora_rg, g.data_cobertura, g.situacao
+              FROM gestacoes g
+              WHERE COALESCE(g.situacao, 'Ativa') NOT IN ('Nasceu', 'Nascido', 'Cancelada', 'Cancelado', 'Perdeu', 'Aborto')
+            )
+            SELECT ga.*, (ga.data_cobertura::date + INTERVAL '285 days')::date as previsao_parto
+            FROM gestacoes_ativas ga
+            WHERE NOT EXISTS (SELECT 1 FROM nascimentos n WHERE n.gestacao_id = ga.id)
+            ORDER BY ga.data_cobertura DESC
+            LIMIT 500
+          `)
+          data = (r.rows || []).map(row => ({
+            receptora: row.receptora_nome || `${row.receptora_serie || ''} ${row.receptora_rg || ''}`.trim(),
+            data_cobertura: toDateStr(row.data_cobertura),
+            previsao_parto: toDateStr(row.previsao_parto)
+          }))
+          resumo = { 'Receptoras aguardando parto': data.length }
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'receptoras_faltam_diagnostico': {
+        try {
+          const colCheck = await query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'animais' AND column_name IN ('data_chegada', 'data_dg_prevista', 'resultado_dg', 'data_dg', 'categoria', 'raca')
+          `)
+          const cols = colCheck.rows?.map(r => r.column_name) || []
+          const temDataChegada = cols.includes('data_chegada')
+          const temDataDgPrevista = cols.includes('data_dg_prevista')
+          const temResultadoDg = cols.includes('resultado_dg')
+          const temCategoria = cols.includes('categoria')
+          const temRaca = cols.includes('raca')
+          if (temDataChegada || temDataDgPrevista) {
+            const whereData = temDataDgPrevista
+              ? `(a.data_dg_prevista >= $1 AND a.data_dg_prevista <= $2)`
+              : `(a.data_chegada >= $1 AND a.data_chegada <= $2)`
+            const whereReceptora = temCategoria
+              ? `(a.categoria = 'Receptora' OR (${temRaca ? "a.raca ILIKE '%receptora%'" : 'false'}))`
+              : (temRaca ? `a.raca ILIKE '%receptora%'` : '1=1')
+            const whereDg = temResultadoDg
+              ? `AND (a.resultado_dg IS NULL OR TRIM(COALESCE(a.resultado_dg,'')) = '' OR LOWER(a.resultado_dg) NOT IN ('prenha', 'p', 'positivo', 'vazia', 'vazio'))`
+              : ''
+            const r = await query(`
+              SELECT a.id, a.serie, a.rg, a.nome, a.data_chegada, a.data_dg_prevista, a.data_dg, a.resultado_dg
+              FROM animais a
+              WHERE a.situacao = 'Ativo' AND ${whereReceptora} ${whereDg}
+                AND ${whereData}
+              ORDER BY a.data_chegada DESC NULLS LAST
+              LIMIT 500
+            `, [start, end])
+            data = (r.rows || []).map(row => ({
+              animal: `${row.serie || ''} ${row.rg || ''}`.trim() || row.nome,
+              data_chegada: toDateStr(row.data_chegada),
+              data_dg_prevista: toDateStr(row.data_dg_prevista),
+              data_dg: toDateStr(row.data_dg)
+            }))
+            resumo = { 'Receptoras aguardando DG': data.length }
+          } else {
+            data = []
+            resumo = { info: 'Colunas data_chegada/data_dg_prevista não encontradas' }
+          }
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'resumo_nascimentos': {
+        try {
+          const r = await query(`
+            SELECT
+              COUNT(*) as total,
+              COUNT(CASE WHEN LOWER(sexo) LIKE 'm%' OR sexo = 'M' THEN 1 END) as machos,
+              COUNT(CASE WHEN LOWER(sexo) LIKE 'f%' OR sexo = 'F' THEN 1 END) as femeas,
+              ROUND(AVG(peso::numeric), 2) as peso_medio
+            FROM nascimentos
+            WHERE data_nascimento >= $1 AND data_nascimento <= $2
+          `, [start, end])
+          const row = r.rows?.[0]
+          resumo = {
+            total: parseInt(row?.total || 0),
+            machos: parseInt(row?.machos || 0),
+            femeas: parseInt(row?.femeas || 0),
+            peso_medio: row?.peso_medio ? `${parseFloat(row.peso_medio).toFixed(1)} kg` : '-'
+          }
+          data = [{ _resumo: resumo }]
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'ocorrencias': {
+        try {
+          const r = await query(`
+            SELECT h.id, h.animal_id, h.tipo, h.data, h.descricao, h.medicamento, h.dosagem,
+                   a.serie, a.rg, a.nome as animal_nome
+            FROM historia_ocorrencias h
+            LEFT JOIN animais a ON a.id = h.animal_id
+            WHERE h.data >= $1 AND h.data <= $2
+            ORDER BY h.data DESC
+            LIMIT 200
+          `, [start, end])
+          data = (r.rows || []).map(row => ({
+            animal: `${row.serie || ''} ${row.rg || ''}`.trim() || row.animal_nome,
+            data: toDateStr(row.data),
+            tipo: row.tipo,
+            medicamento: row.medicamento,
+            descricao: row.descricao
+          }))
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'notas_fiscais': {
+        try {
+          const colCheck = await query(`
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'notas_fiscais' AND column_name IN ('data_compra', 'data_saida')
+          `)
+          const temDataSaida = colCheck.rows?.some(r => r.column_name === 'data_saida')
+          const dataCol = temDataSaida
+            ? `COALESCE(CASE WHEN nf.tipo = 'saida' THEN nf.data_saida END, nf.data_compra)`
+            : 'nf.data_compra'
+          const r = await query(`
+            SELECT nf.id, nf.numero_nf, nf.tipo, nf.fornecedor, nf.destino, nf.valor_total, nf.data_compra, nf.data_saida
+            FROM notas_fiscais nf
+            WHERE ${dataCol}::date >= $1 AND ${dataCol}::date <= $2
+            ORDER BY ${dataCol} DESC
+            LIMIT 200
+          `, [start, end])
+          data = (r.rows || []).map(row => ({
+            nf: row.numero_nf,
+            tipo: row.tipo,
+            fornecedor: row.fornecedor || row.destino,
+            valor: row.valor_total,
+            data: toDateStr(row.tipo === 'saida' && row.data_saida ? row.data_saida : row.data_compra)
+          }))
+          const entradas = data.filter(d => d.tipo === 'entrada').length
+          const saidas = data.filter(d => d.tipo === 'saida').length
+          resumo = { 'Entradas': entradas, 'Saídas': saidas, 'Total NFs': data.length }
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'custos': {
+        try {
+          const r = await query(`
+            SELECT c.id, c.data, c.tipo, c.valor, c.descricao, a.serie, a.rg
+            FROM custos c
+            LEFT JOIN animais a ON a.id = c.animal_id
+            WHERE c.data >= $1 AND c.data <= $2
+            ORDER BY c.data DESC
+            LIMIT 300
+          `, [start, end])
+          data = (r.rows || []).map(row => ({
+            data: toDateStr(row.data),
+            tipo: row.tipo,
+            valor: row.valor,
+            animal: row.serie && row.rg ? `${row.serie} ${row.rg}` : null,
+            descricao: row.descricao
+          }))
+          const total = data.reduce((s, d) => s + (parseFloat(d.valor) || 0), 0)
+          resumo = { 'Total de custos': data.length, 'Valor total': `R$ ${total.toFixed(2)}` }
+        } catch (e) {
+          data = []
+        }
+        break
+      }
+
+      case 'boletim_rebanho': {
+        try {
+          const r = await query(`
+            SELECT raca, sexo, COUNT(*) as total
+            FROM animais
+            WHERE situacao = 'Ativo'
+            GROUP BY raca, sexo
+            ORDER BY raca, sexo
+            LIMIT 100
+          `)
+          data = (r.rows || []).map(row => ({
+            raca: row.raca || 'Não informado',
+            sexo: formatarSexo(row.sexo),
+            total: parseInt(row.total || 0)
+          }))
+          const totalAnimais = data.reduce((s, d) => s + (d.total || 0), 0)
+          resumo = { 'Total de animais ativos': totalAnimais, 'Racas': [...new Set(data.map(d => d.raca))].length }
+        } catch (e) {
           data = []
         }
         break

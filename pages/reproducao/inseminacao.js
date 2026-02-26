@@ -684,15 +684,15 @@ export default function InseminacaoArtificial() {
     newMapping.rg.source = findColumnIndex(['RG', 'rg']) || ''
     newMapping.local.source = findColumnIndex(['LOCAL', 'Local', 'local']) || ''
     
-    // 1ª IA - coluna TOURO deve conter NOME (nunca SÉRIE ou RG)
-    const touro1Col = findColumnIndexByHeader(['TOURO_1ª I.A', 'TOURO 1ª IA', 'TOURO_1ª IA', 'TOURO 1ª I.A', 'Touro_1ª I.A', 'TOURO 1ª', '1ª TOURO', 'TOURO', 'NOME TOURO'], 0, ['SÉRIE', 'RG'])
+    // 1ª IA - coluna TOURO deve conter NOME (nunca SÉRIE ou RG) - ACASALAMENTO é o nome principal no Excel
+    const touro1Col = findColumnIndexByHeader(['ACASALAMENTO', 'ACASALAMENTOS', 'TOURO_1ª I.A', 'TOURO 1ª IA', 'TOURO_1ª IA', 'TOURO 1ª I.A', 'Touro_1ª I.A', 'TOURO 1ª', '1ª TOURO', 'TOURO', 'NOME TOURO', 'REPRODUTOR'], 0, ['SÉRIE', 'RG'])
     newMapping.touro1.source = touro1Col ? (headers.filter(h => h.name === touro1Col.name).length > 1 ? `${touro1Col.name}|${touro1Col.index}` : touro1Col.name) : ''
     const idxDepoisTouro1 = touro1Col ? touro1Col.index + 1 : 0
     const serieTouro1Col = findColumnIndexByHeader(['SÉRIE TOURO 1ª', 'SERIE TOURO 1ª', 'SÉRIE', 'Série'], idxDepoisTouro1)
     const rgTouro1Col = findColumnIndexByHeader(['RG TOURO 1ª', 'RG TOURO 1ª', 'RG', 'rg'], idxDepoisTouro1)
     newMapping.serieTouro1.source = serieTouro1Col ? `${serieTouro1Col.name}|${serieTouro1Col.index}` : ''
     newMapping.rgTouro1.source = rgTouro1Col ? `${rgTouro1Col.name}|${rgTouro1Col.index}` : ''
-    newMapping.dataIA1.source = findColumnIndex(['DATA I.A', 'DATA I.A', 'Data I.A', 'data i.a', 'DATA IA', 'DATA I.A', 'DATA IA 1ª', 'DATA IA 1', 'DATA I.A 1ª']) || ''
+    newMapping.dataIA1.source = findColumnIndex(['DATA I.A.', 'DATA I.A', 'Data I.A.', 'Data I.A', 'data i.a', 'DATA IA', 'DATA IA 1ª', 'DATA IA 1', 'DATA I.A 1ª']) || ''
     newMapping.dataDG1.source = findColumnIndex(['DATA DG 1ª IA', 'Data DG 1ª IA', 'data dg 1ª ia', 'DATA DG 1ªIA', 'DATA DG 1ª IA', 'DATA DG', 'Data DG', 'data dg', 'DATA DG 1ª', 'DATA DG 1']) || ''
     
     // 2ª IA
@@ -813,6 +813,17 @@ export default function InseminacaoArtificial() {
         return
       }
 
+      // Função auxiliar para encontrar índice do cabeçalho (compatível com variações de espaços/case)
+      const findHeaderIndex = (source) => {
+        if (!source) return -1
+        const sourceNorm = String(source).trim().toUpperCase()
+        const found = excelHeaders.findIndex(h => {
+          const nameNorm = String(h?.name || '').trim().toUpperCase()
+          return nameNorm === sourceNorm || nameNorm.includes(sourceNorm) || sourceNorm.includes(nameNorm)
+        })
+        return found
+      }
+
       // Converter dados usando mapeamento (source pode ser "Nome" ou "Nome|índice" para colunas duplicadas)
       const jsonData = excelData.map(row => {
         const obj = {}
@@ -825,6 +836,7 @@ export default function InseminacaoArtificial() {
               if (!isNaN(idx)) headerIndex = idx
             } else {
               headerIndex = excelHeaders.findIndex(h => h.name === mapping.source)
+              if (headerIndex === -1) headerIndex = findHeaderIndex(mapping.source)
             }
             if (headerIndex >= 0 && row[headerIndex] !== undefined) {
               obj[key] = String(row[headerIndex] || '').trim()

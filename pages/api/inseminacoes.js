@@ -3,7 +3,10 @@ import { query } from '../../lib/database';
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
-      // Listar todas as inseminações com dados do animal
+      const { animal_id } = req.query
+      const params = animal_id ? [parseInt(animal_id, 10)] : []
+      const whereClause = animal_id ? 'WHERE i.animal_id = $1' : ''
+      // Listar inseminações (todas ou por animal_id)
       try {
         const result = await query(`
           SELECT 
@@ -16,8 +19,9 @@ export default async function handler(req, res) {
           FROM inseminacoes i
           LEFT JOIN animais a ON i.animal_id = a.id
           LEFT JOIN estoque_semen es ON i.semen_id = es.id
+          ${whereClause}
           ORDER BY i.data_ia DESC, i.created_at DESC
-        `);
+        `, params);
 
         // Enriquecer: usar nome do sêmen quando touro_nome parece ser só série (ex: FGPA, CJCJ)
         const isPiqueteOuSerie = (v) => {

@@ -41,7 +41,71 @@ export default async function handler(req, res) {
 
       sqlQuery += ` ORDER BY i.data_ia DESC, i.created_at DESC`
 
-      const result = await query(sqlQuery, params)
+      let result
+      try {
+        result = await query(sqlQuery, params)
+      } catch (error) {
+        // Se a tabela estoque_semen não existir (erro 42P01), tentar query simplificada
+        if (error.code === '42P01') {
+          console.warn('Tabela estoque_semen não encontrada, usando query simplificada')
+          
+          let simpleQuery = `
+            SELECT 
+              i.*,
+              a.serie as animal_serie,
+              a.rg as animal_rg,
+              a.nome as animal_nome,
+              a.tatuagem as animal_tatuagem
+            FROM inseminacoes i
+            LEFT JOIN animais a ON i.animal_id = a.id
+            WHERE 1=1
+          `
+          // Recriar params para a nova query (embora sejam os mesmos, o paramCount precisa bater)
+          // Na verdade, podemos reusar os params pois a ordem é a mesma
+          
+          if (animal_id) simpleQuery += ` AND i.animal_id = $1` // Assumindo ordem fixa se reusar params? Não, melhor reconstruir
+          
+          // Reconstruir a query simplificada com a mesma lógica de filtros
+          simpleQuery = `
+            SELECT 
+              i.*,
+              a.serie as animal_serie,
+              a.rg as animal_rg,
+              a.nome as animal_nome,
+              a.tatuagem as animal_tatuagem
+            FROM inseminacoes i
+            LEFT JOIN animais a ON i.animal_id = a.id
+            WHERE 1=1
+          `
+          // Reusar params e lógica de construção
+          paramCount = 1
+          const simpleParams = []
+          
+          if (animal_id) {
+            simpleQuery += ` AND i.animal_id = $${paramCount}`
+            simpleParams.push(animal_id)
+            paramCount++
+          }
+
+          if (data_inicio) {
+            simpleQuery += ` AND i.data_ia >= $${paramCount}`
+            simpleParams.push(data_inicio)
+            paramCount++
+          }
+
+          if (data_fim) {
+            simpleQuery += ` AND i.data_ia <= $${paramCount}`
+            simpleParams.push(data_fim)
+            paramCount++
+          }
+          
+          simpleQuery += ` ORDER BY i.data_ia DESC, i.created_at DESC`
+          
+          result = await query(simpleQuery, simpleParams)
+        } else {
+          throw error
+        }
+      }
 
       // Corrigir nomes de touro quando touro_nome/touro contém "PIQUETE" (local em vez de touro)
       const isPiquete = (v) => {

@@ -136,7 +136,9 @@ async function animaisHandler(req, res) {
         avoMaterno: animalCorrigido.avo_materno || animalCorrigido.avoMaterno,
         localNascimento: animalCorrigido.local_nascimento,
         pastoAtual: animalCorrigido.pasto_atual || animalCorrigido.piquete_atual,
-        piqueteAtual: animalCorrigido.piquete_atual || animalCorrigido.pasto_atual
+        piqueteAtual: animalCorrigido.piquete_atual || animalCorrigido.pasto_atual,
+        situacao_abcz: animalCorrigido.situacao_abcz || animalCorrigido.situacaoAbcz || null,
+        situacaoAbcz: animalCorrigido.situacao_abcz || animalCorrigido.situacaoAbcz || null
       }
     })
     

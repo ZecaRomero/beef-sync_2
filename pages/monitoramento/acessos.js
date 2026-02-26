@@ -62,23 +62,31 @@ export default function AcessosSistema() {
   const TIPOS_RELATORIOS = [
     { key: 'pesagens', label: 'Pesagens' },
     { key: 'resumo_pesagens', label: 'Resumo de Pesagens' },
-    { key: 'femeas_ia', label: 'Fêmeas que Fizeram IA' },
-    { key: 'resumo_femeas_ia', label: 'Resumo de Fêmeas IA' },
     { key: 'inseminacoes', label: 'Inseminações' },
+    { key: 'resumo_femeas_ia', label: 'Resumo de Fêmeas IA' },
     { key: 'gestacoes', label: 'Gestações' },
     { key: 'nascimentos', label: 'Nascimentos' },
+    { key: 'resumo_nascimentos', label: 'Resumo de Nascimentos' },
     { key: 'previsoes_parto', label: 'Previsões de Parto' },
     { key: 'exames_andrologicos', label: 'Exames Andrológicos' },
     { key: 'transferencias_embrioes', label: 'Transferências de Embriões' },
+    { key: 'coleta_fiv', label: 'Coleta FIV' },
+    { key: 'receptoras_chegaram', label: 'Receptoras que Chegaram' },
+    { key: 'receptoras_faltam_parir', label: 'Receptoras que Faltam Parir' },
+    { key: 'receptoras_faltam_diagnostico', label: 'Receptoras que Faltam Diagnóstico' },
     { key: 'calendario_reprodutivo', label: '📅 Calendário Reprodutivo' },
     { key: 'mortes', label: 'Mortes' },
     { key: 'vacinacoes', label: 'Vacinações' },
+    { key: 'ocorrencias', label: 'Ocorrências' },
     { key: 'estoque_semen', label: 'Estoque de Sêmen' },
     { key: 'abastecimento_nitrogenio', label: 'Abastecimento de Nitrogênio' },
     { key: 'animais_piquetes', label: 'Animais por Piquete' },
+    { key: 'notas_fiscais', label: 'Notas Fiscais' },
     { key: 'movimentacoes_financeiras', label: 'Movimentações Financeiras' },
+    { key: 'custos', label: 'Custos' },
     { key: 'ranking_animais_avaliados', label: 'Ranking dos Animais Avaliados' },
-    { key: 'ranking_pmgz', label: '🏆 Ranking de Animais ' }
+    { key: 'ranking_pmgz', label: '🏆 Ranking de Animais' },
+    { key: 'boletim_rebanho', label: 'Boletim do Rebanho' }
   ]
 
   const updateSetting = async (key, value) => {
@@ -302,7 +310,8 @@ export default function AcessosSistema() {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                     {TIPOS_RELATORIOS.map(t => {
-                      const enabled = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
+                      const raw = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
+                      const enabled = [...new Set(raw.map(k => k === 'femeas_ia' ? 'inseminacoes' : k))]
                       return (
                         <label key={t.key} className="flex items-center gap-2 cursor-pointer">
                           <input
@@ -311,8 +320,8 @@ export default function AcessosSistema() {
                             onChange={(e) => {
                               const current = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
                               const next = e.target.checked
-                                ? [...current, t.key]
-                                : current.filter(k => k !== t.key)
+                                ? [...new Set([...current.filter(k => k !== 'femeas_ia'), t.key])]
+                                : current.filter(k => k !== t.key && k !== 'femeas_ia')
                               setMobileReportsDraft(next)
                             }}
                             className="w-4 h-4 rounded border-teal-600 text-teal-600 focus:ring-teal-500"
@@ -324,7 +333,8 @@ export default function AcessosSistema() {
                   </div>
                   <button
                     onClick={() => {
-                      const next = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
+                      let next = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
+                      next = [...new Set(next.map(k => k === 'femeas_ia' ? 'inseminacoes' : k))]
                       updateSetting('mobile_reports_enabled', next)
                       setMobileReportsDraft(null)
                     }}
