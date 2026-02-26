@@ -308,6 +308,36 @@ export default function AcessosSistema() {
                   <p className="text-sm text-teal-700 dark:text-teal-300 mb-3">
                     Marque os relatórios que usuários mobile podem visualizar em /mobile-relatorios
                   </p>
+                  
+                  <div className="flex justify-end mb-2">
+                     <button
+                       type="button"
+                       onClick={() => {
+                         const allKeys = TIPOS_RELATORIOS.map(t => t.key)
+                         const current = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
+                         // Normalização para verificar se está marcado (compatibilidade com 'femeas_ia')
+                         const currentNormalized = current.map(k => k === 'femeas_ia' ? 'inseminacoes' : k)
+                         const allSelected = allKeys.every(k => currentNormalized.includes(k))
+                         
+                         if (allSelected) {
+                           // Desmarcar tudo: remove chaves conhecidas E a chave legada 'femeas_ia'
+                           setMobileReportsDraft(current.filter(k => !allKeys.includes(k) && k !== 'femeas_ia'))
+                         } else {
+                           // Marcar tudo: adiciona o que falta
+                           const toAdd = allKeys.filter(k => !currentNormalized.includes(k))
+                           setMobileReportsDraft([...current, ...toAdd])
+                         }
+                       }}
+                       className="text-xs font-bold text-teal-700 hover:text-teal-900 dark:text-teal-400 dark:hover:text-teal-200 underline cursor-pointer"
+                     >
+                       {TIPOS_RELATORIOS.every(t => {
+                         const current = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
+                         const currentNormalized = current.map(k => k === 'femeas_ia' ? 'inseminacoes' : k)
+                         return currentNormalized.includes(t.key)
+                       }) ? 'Desmarcar todos' : 'Marcar todos'}
+                     </button>
+                   </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                     {TIPOS_RELATORIOS.map(t => {
                       const raw = mobileReportsDraft ?? settings?.mobile_reports_enabled ?? []
