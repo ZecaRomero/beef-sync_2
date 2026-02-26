@@ -682,6 +682,28 @@ export default function MobileRelatorios() {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Card especial para Boletim Defesa */}
+                  <Link href="/boletim-defesa/mobile">
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-600 dark:from-teal-600 dark:to-teal-700 border-2 border-teal-400 dark:border-teal-500 shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 rounded-xl bg-white/20 backdrop-blur">
+                            <DocumentTextIcon className="h-7 w-7 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-white text-lg">Boletim Defesa</p>
+                            <p className="text-teal-100 text-sm">Quantidades de gado por faixa etária</p>
+                          </div>
+                        </div>
+                        <ChevronRightIcon className="h-6 w-6 text-white" />
+                      </div>
+                    </motion.div>
+                  </Link>
+
                   {recentIds.length > 0 && (
                     <div>
                       <div className="flex items-center gap-2 mb-2 px-1">

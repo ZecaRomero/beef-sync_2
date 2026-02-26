@@ -713,7 +713,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
                 <div className="flex items-center justify-center mb-0.5">
                   <ScaleIcon className="h-1 w-1 text-purple-600 dark:text-purple-400" />
                 </div>
-                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Math.round(animal.peso)}kg</p>
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Math.round(animal.peso)} kg</p>
                 {evolucaoPeso != null && (
                   <p className={`text-xs font-bold ${parseFloat(evolucaoPeso) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     {parseFloat(evolucaoPeso) >= 0 ? '↗' : '↘'} {parseFloat(evolucaoPeso) >= 0 ? '+' : ' '}{Math.round(evolucaoPeso)} kg
@@ -727,7 +727,7 @@ export default function ConsultaAnimalView({ darkMode = false, toggleDarkMode })
                 <div className="flex items-center justify-center mb-0.5">
                   <BeakerIcon className="h-1 w-1 text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{Math.round(ultimoCE)}cm</p>
+                <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{Math.round(ultimoCE)} cm</p>
                 <p className="text-xs text-gray-600 dark:text-gray-400">C.E</p>
               </div>
             )}

@@ -34,12 +34,6 @@ import { usePermissions } from '../../hooks/usePermissions'
 
 const navigation: NavigationItem[] = [
   {
-    name: 'Dashboard',
-    href: '/dashboard',
-    icon: HomeIcon,
-    color: 'text-blue-600 dark:text-blue-400'
-  },
-  {
     name: 'Animais',
     icon: UserGroupIcon,
     color: 'text-green-600 dark:text-green-400',
@@ -55,82 +49,11 @@ const navigation: NavigationItem[] = [
     ]
   },
   {
-    name: 'Reprodução',
-    icon: HeartIcon,
-    color: 'text-pink-600 dark:text-pink-400',
-    children: [
-      { name: 'Controle Reprodutivo', href: '/reproducao/controle', description: 'Gestão reprodutiva' },
-      { name: 'Inseminação Artificial', href: '/reproducao/inseminacao', description: 'Registro de IA' },
-      { name: 'Transferência de Embriões', href: '/reproducao/transferencia-embrioes', description: 'Controle de TE' },
-      { name: 'Receptoras para DG', href: '/reproducao/receptoras-dg', description: 'Lista de receptoras para Diagnóstico de Gestação' },
-      { name: 'Nascimentos', href: '/reproducao/nascimentos', description: 'Controle de nascimentos e alertas' },
-      { name: 'Coleta de Oócitos (FIV)', href: '/reproducao/coleta-fiv', description: 'Coleta para FIV' },
-      { name: 'Exames Andrológicos', href: '/reproducao/exames-andrologicos', description: 'Exames de touros' },
-      { name: 'Calendário Reprodutivo', href: '/reproducao/calendario', description: 'Agenda reprodutiva' },
-      { name: 'Genealogia', href: '/reproducao/genealogia', description: 'Árvore genealógica' }
-    ]
-  },
-  {
-    name: 'DNA',
-    icon: BeakerIcon,
-    color: 'text-indigo-600 dark:text-indigo-400',
-    children: [
-      { name: 'Envio para Laboratório', href: '/dna', description: 'Enviar animais para análise de DNA' },
-      { name: 'Histórico de Envios', href: '/dna/historico', description: 'Histórico de análises de DNA' }
-    ]
-  },
-  {
-    name: 'Sanidade',
+    name: 'Boletim Defesa',
     icon: ShieldCheckIcon,
-    color: 'text-emerald-600 dark:text-emerald-400',
+    color: 'text-teal-600 dark:text-teal-400',
     children: [
-      { name: 'Protocolos Sanitários', href: '/sanidade/protocolos', description: 'Protocolos de saúde' },
-      { name: 'Vacinação', href: '/sanidade/vacinacao', description: 'Controle de vacinas' },
-      { name: 'Medicamentos', href: '/sanidade/medicamentos', description: 'Estoque de medicamentos' },
-      { name: 'Exames Laboratoriais', href: '/sanidade/exames', description: 'Resultados de exames' },
-      { name: 'Quarentena', href: '/sanidade/quarentena', description: 'Animais em quarentena' },
-      { name: 'Histórico Sanitário', href: '/sanidade/historico', description: 'Histórico de saúde' }
-    ]
-  },
-  {
-    name: 'Movimentação',
-    icon: ArrowPathIcon,
-    color: 'text-purple-600 dark:text-purple-400',
-    children: [
-      { name: 'Localização de Animais', href: '/movimentacao/localizacao', description: 'Onde estão os animais' },
-      { name: 'Histórico de Movimentações', href: '/movimentacao/historico', description: 'Histórico de transferências' },
-      { name: 'Gestão de Piquetes', href: '/movimentacao/piquetes', description: 'Gerenciar piquetes' }
-    ]
-  },
-  {
-    name: 'Pesagem',
-    icon: MapPinIcon,
-    color: 'text-amber-600 dark:text-amber-400',
-    children: [
-      { name: 'Pesagem', href: '/manejo/pesagem', description: 'Controle de peso' },
-      { name: 'Lotes', href: '/manejo/lotes', description: 'Organização em lotes' },
-      { name: 'Rastreabilidade', href: '/manejo/rastreabilidade', description: 'Histórico de movimentos' }
-    ]
-  },
-  {
-    name: 'Nutrição',
-    icon: ScaleIcon,
-    color: 'text-lime-600 dark:text-lime-400',
-    children: [
-      { name: 'Dietas', href: '/nutricao/dietas', description: 'Planos nutricionais' },
-      { name: 'Suplementação', href: '/nutricao/suplementacao', description: 'Controle de suplementos' },
-      { name: 'Consumo de Ração', href: '/nutricao/consumo-racao', description: 'Monitorar consumo' },
-      { name: 'Análise Nutricional', href: '/nutricao/analise', description: 'Análise de alimentos' },
-      { name: 'Custos Nutricionais', href: '/nutricao/custos', description: 'Custos com alimentação' }
-    ]
-  },
-  {
-    name: 'Estoque',
-    icon: CubeIcon,
-    color: 'text-purple-600 dark:text-purple-400',
-    children: [
-      { name: 'Estoque de Sêmen', href: '/estoque-semen', description: 'Controle de sêmen' },
-      { name: 'Nitrogênio', href: '/nitrogenio', description: 'Gestão de nitrogênio' }
+      { name: 'Dashboard', href: '/boletim-defesa', description: 'Visão geral do boletim de defesa' }
     ]
   },
   {
@@ -146,38 +69,6 @@ const navigation: NavigationItem[] = [
     ]
   },
   {
-    name: 'Monitoramento',
-    icon: EyeIcon,
-    color: 'text-violet-600 dark:text-violet-400',
-    children: [
-      { name: 'Acessos ao Sistema', href: '/monitoramento/acessos', description: 'Acessos, mobile, bloquear e manutenção' },
-      { name: 'Alertas Inteligentes', href: '/monitoramento/alertas', description: 'Notificações automáticas' },
-      { name: 'Performance do Rebanho', href: '/monitoramento/performance', description: 'Indicadores de performance' },
-      { name: 'Análise de Tendências', href: '/monitoramento/tendencias', description: 'Análise preditiva' },
-      { name: 'Dashboard Executivo', href: '/monitoramento/dashboard-executivo', description: 'Visão gerencial' }
-    ]
-  },
-  {
-    name: 'Planejamento',
-    icon: CalendarDaysIcon,
-    color: 'text-rose-600 dark:text-rose-400',
-    children: [
-      { name: 'Agenda de Atividades', href: '/planejamento/agenda', description: 'Cronograma de atividades' },
-      { name: 'Metas e Objetivos', href: '/planejamento/metas', description: 'Definir metas' },
-      { name: 'Orçamento', href: '/planejamento/orcamento', description: 'Planejamento financeiro' },
-      { name: 'Projeções', href: '/planejamento/projecoes', description: 'Projeções futuras' }
-    ]
-  },
-  {
-    name: 'Notas Fiscais',
-    icon: DocumentTextIcon,
-    color: 'text-orange-600 dark:text-orange-400',
-    children: [
-      { name: 'Gerenciar NFs', href: '/notas-fiscais', description: 'Entradas e Saídas (Vendas)' },
-      { name: 'Relatório Fiscal', href: '/notas-fiscais/relatorio', description: 'Relatórios fiscais' }
-    ]
-  },
-  {
     name: 'Contabilidade',
     icon: ClipboardDocumentListIcon,
     color: 'text-indigo-600 dark:text-indigo-400',
@@ -190,6 +81,108 @@ const navigation: NavigationItem[] = [
     href: '/custos',
     icon: CurrencyDollarIcon,
     color: 'text-red-600 dark:text-red-400'
+  },
+  {
+    name: 'Dashboard',
+    href: '/dashboard',
+    icon: HomeIcon,
+    color: 'text-blue-600 dark:text-blue-400'
+  },
+  {
+    name: 'DNA',
+    icon: BeakerIcon,
+    color: 'text-indigo-600 dark:text-indigo-400',
+    children: [
+      { name: 'Envio para Laboratório', href: '/dna', description: 'Enviar animais para análise de DNA' },
+      { name: 'Histórico de Envios', href: '/dna/historico', description: 'Histórico de análises de DNA' }
+    ]
+  },
+  {
+    name: 'Estoque',
+    icon: CubeIcon,
+    color: 'text-purple-600 dark:text-purple-400',
+    children: [
+      { name: 'Estoque de Sêmen', href: '/estoque-semen', description: 'Controle de sêmen' },
+      { name: 'Nitrogênio', href: '/nitrogenio', description: 'Gestão de nitrogênio' }
+    ]
+  },
+  {
+    name: 'Manutenção',
+    icon: WrenchScrewdriverIcon,
+    color: 'text-yellow-600 dark:text-yellow-400',
+    children: [
+      { name: 'Diagnóstico', href: '/diagnostico-animais', description: 'Diagnóstico do sistema' },
+      { name: 'Teste Animais', href: '/test-animals', description: 'Testar funcionalidades' },
+      { name: 'Debug Animais', href: '/debug-animals', description: 'Debug do sistema' },
+      { name: 'Teste Boletim', href: '/test-boletim', description: 'Testar boletins' },
+      { name: 'Limpeza Animais', href: '/cleanup-animals', description: 'Limpeza de dados' },
+      { name: '🗑️ Limpar Todos os Animais', href: '/limpar-animais', description: 'Excluir todos os animais do banco', danger: true },
+      { name: '🔥 Limpar Banco Completo', href: '/limpar-banco-completo', description: 'Excluir TODOS os dados (NFs, Boletim, etc)', danger: true }
+    ]
+  },
+  {
+    name: 'Monitoramento',
+    icon: EyeIcon,
+    color: 'text-violet-600 dark:text-violet-400',
+    children: [
+      { name: 'Acessos ao Sistema', href: '/monitoramento/acessos', description: 'Acessos, mobile, bloquear e manutenção' },
+      { name: 'Alertas Inteligentes', href: '/monitoramento/alertas', description: 'Notificações automáticas' },
+      { name: 'Performance do Rebanho', href: '/monitoramento/performance', description: 'Indicadores de performance' },
+      { name: 'Análise de Tendências', href: '/monitoramento/tendencias', description: 'Análise preditiva' },
+      { name: 'Dashboard Executivo', href: '/monitoramento/dashboard-executivo', description: 'Visão gerencial' }
+    ]
+  },
+  {
+    name: 'Movimentação',
+    icon: ArrowPathIcon,
+    color: 'text-purple-600 dark:text-purple-400',
+    children: [
+      { name: 'Localização de Animais', href: '/movimentacao/localizacao', description: 'Onde estão os animais' },
+      { name: 'Histórico de Movimentações', href: '/movimentacao/historico', description: 'Histórico de transferências' },
+      { name: 'Gestão de Piquetes', href: '/movimentacao/piquetes', description: 'Gerenciar piquetes' }
+    ]
+  },
+  {
+    name: 'Notas Fiscais',
+    icon: DocumentTextIcon,
+    color: 'text-orange-600 dark:text-orange-400',
+    children: [
+      { name: 'Gerenciar NFs', href: '/notas-fiscais', description: 'Entradas e Saídas (Vendas)' },
+      { name: 'Relatório Fiscal', href: '/notas-fiscais/relatorio', description: 'Relatórios fiscais' }
+    ]
+  },
+  {
+    name: 'Nutrição',
+    icon: ScaleIcon,
+    color: 'text-lime-600 dark:text-lime-400',
+    children: [
+      { name: 'Dietas', href: '/nutricao/dietas', description: 'Planos nutricionais' },
+      { name: 'Suplementação', href: '/nutricao/suplementacao', description: 'Controle de suplementos' },
+      { name: 'Consumo de Ração', href: '/nutricao/consumo-racao', description: 'Monitorar consumo' },
+      { name: 'Análise Nutricional', href: '/nutricao/analise', description: 'Análise de alimentos' },
+      { name: 'Custos Nutricionais', href: '/nutricao/custos', description: 'Custos com alimentação' }
+    ]
+  },
+  {
+    name: 'Pesagem',
+    icon: MapPinIcon,
+    color: 'text-amber-600 dark:text-amber-400',
+    children: [
+      { name: 'Pesagem', href: '/manejo/pesagem', description: 'Controle de peso' },
+      { name: 'Lotes', href: '/manejo/lotes', description: 'Organização em lotes' },
+      { name: 'Rastreabilidade', href: '/manejo/rastreabilidade', description: 'Histórico de movimentos' }
+    ]
+  },
+  {
+    name: 'Planejamento',
+    icon: CalendarDaysIcon,
+    color: 'text-rose-600 dark:text-rose-400',
+    children: [
+      { name: 'Agenda de Atividades', href: '/planejamento/agenda', description: 'Cronograma de atividades' },
+      { name: 'Metas e Objetivos', href: '/planejamento/metas', description: 'Definir metas' },
+      { name: 'Orçamento', href: '/planejamento/orcamento', description: 'Planejamento financeiro' },
+      { name: 'Projeções', href: '/planejamento/projecoes', description: 'Projeções futuras' }
+    ]
   },
   {
     name: 'Protocolos',
@@ -211,6 +204,35 @@ const navigation: NavigationItem[] = [
     ]
   },
   {
+    name: 'Reprodução',
+    icon: HeartIcon,
+    color: 'text-pink-600 dark:text-pink-400',
+    children: [
+      { name: 'Controle Reprodutivo', href: '/reproducao/controle', description: 'Gestão reprodutiva' },
+      { name: 'Inseminação Artificial', href: '/reproducao/inseminacao', description: 'Registro de IA' },
+      { name: 'Transferência de Embriões', href: '/reproducao/transferencia-embrioes', description: 'Controle de TE' },
+      { name: 'Receptoras para DG', href: '/reproducao/receptoras-dg', description: 'Lista de receptoras para Diagnóstico de Gestação' },
+      { name: 'Nascimentos', href: '/reproducao/nascimentos', description: 'Controle de nascimentos e alertas' },
+      { name: 'Coleta de Oócitos (FIV)', href: '/reproducao/coleta-fiv', description: 'Coleta para FIV' },
+      { name: 'Exames Andrológicos', href: '/reproducao/exames-andrologicos', description: 'Exames de touros' },
+      { name: 'Calendário Reprodutivo', href: '/reproducao/calendario', description: 'Agenda reprodutiva' },
+      { name: 'Genealogia', href: '/reproducao/genealogia', description: 'Árvore genealógica' }
+    ]
+  },
+  {
+    name: 'Sanidade',
+    icon: ShieldCheckIcon,
+    color: 'text-emerald-600 dark:text-emerald-400',
+    children: [
+      { name: 'Protocolos Sanitários', href: '/sanidade/protocolos', description: 'Protocolos de saúde' },
+      { name: 'Vacinação', href: '/sanidade/vacinacao', description: 'Controle de vacinas' },
+      { name: 'Medicamentos', href: '/sanidade/medicamentos', description: 'Estoque de medicamentos' },
+      { name: 'Exames Laboratoriais', href: '/sanidade/exames', description: 'Resultados de exames' },
+      { name: 'Quarentena', href: '/sanidade/quarentena', description: 'Animais em quarentena' },
+      { name: 'Histórico Sanitário', href: '/sanidade/historico', description: 'Histórico de saúde' }
+    ]
+  },
+  {
     name: 'Sistema',
     icon: CogIcon,
     color: 'text-gray-600 dark:text-gray-400',
@@ -220,20 +242,6 @@ const navigation: NavigationItem[] = [
       { name: 'Usuários', href: '/sistema/usuarios', description: 'Gestão de usuários' },
       { name: 'Permissões', href: '/sistema/permissoes', description: 'Controle de acesso' },
       { name: '💬 Feedbacks', href: '/admin/feedbacks', description: 'Feedbacks dos usuários mobile' }
-    ]
-  },
-  {
-    name: 'Manutenção',
-    icon: WrenchScrewdriverIcon,
-    color: 'text-yellow-600 dark:text-yellow-400',
-    children: [
-      { name: 'Diagnóstico', href: '/diagnostico-animais', description: 'Diagnóstico do sistema' },
-      { name: 'Teste Animais', href: '/test-animals', description: 'Testar funcionalidades' },
-      { name: 'Debug Animais', href: '/debug-animals', description: 'Debug do sistema' },
-      { name: 'Teste Boletim', href: '/test-boletim', description: 'Testar boletins' },
-      { name: 'Limpeza Animais', href: '/cleanup-animals', description: 'Limpeza de dados' },
-      { name: '🗑️ Limpar Todos os Animais', href: '/limpar-animais', description: 'Excluir todos os animais do banco', danger: true },
-      { name: '🔥 Limpar Banco Completo', href: '/limpar-banco-completo', description: 'Excluir TODOS os dados (NFs, Boletim, etc)', danger: true }
     ]
   }
 ]
